@@ -1,0 +1,44 @@
+---
+title: "Review: [MANUSCRIPT-ID]"
+subtitle: "*[Paper Title]*"
+format: pdf
+---
+
+## Summary
+
+[2-3 sentence summary of paper's goals, methods, and claims]
+
+**Strengths:**
+[List key strengths: novel contributions, code availability, well-designed experiments, clear writing]
+
+**Weaknesses:**
+[List major weaknesses upfront: unsupported claims, missing comparisons, reproducibility issues]
+
+---
+
+## Major Issues
+
+### 1. [Descriptive Issue Title]
+
+[Detailed explanation citing specific pages, equations, figures, or code lines. Contrast with prior work. Propose actionable fixes.]
+
+### 2. [Descriptive Issue Title]
+
+[Continue pattern for each major issue]
+
+---
+
+## Minor Issues
+
+- [Notation issue, e.g., "ε and ϵ used interchangeably for errors (pp. 5, 12)"]
+- [Clarity issue, e.g., "Definition of X on p.7 is ambiguous"]
+- [Missing reference, e.g., "Related work by Smith (2020) not cited"]
+- [Figure issue, e.g., "Figure 3 axis labels illegible at print size"]
+- [Typo, e.g., "*inherint* → *inherent* (p.2)"]
+- [Code issue, e.g., "Inefficient loop in `analysis.R` line 145"]
+
+---
+
+## Recommendation
+
+[Optional: Overall assessment and recommendation to editors. Suggest Accept/Minor Revision/Major Revision/Reject with brief justification.]
