@@ -12,6 +12,7 @@ for academic / statistics workflows.
 | `setup-benchmark` | Monte Carlo simulation study design (ADEMP framework) |
 | `peer-review` | Structured peer review generation for statistical/methodological papers |
 | `reproducibility-review` | Computational reproducibility review of code supplements |
+| `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 
 ## Installation
