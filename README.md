@@ -35,3 +35,12 @@ cp -r ai-scaffolding/skills/* ~/.claude/skills/
 ```
 
 Skills are automatically discovered by Claude Code on next session start.
+
+## Other Sources
+
+- [posit-dev/skills](https://github.com/posit-dev/skills) is Posit's official skill
+library and seems worth browsing. The
+[`r-lib/cran-extrachecks`](https://github.com/posit-dev/skills/blob/main/r-lib/cran-extrachecks/SKILL.md)
+skill looks particularly useful — it covers the "must be right but hard to
+unit-test"^[thx [@jemus42](https://github.com/jemus42) for the pointer] class of CRAN submission checks. 
+
