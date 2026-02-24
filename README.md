@@ -7,13 +7,16 @@ for academic / statistics workflows.
 
 | Skill | Description |
 |---|---|
-| `r-package-coding` | R package development standards (S3, roxygen2, checkmate, testthat) |
-| `r-scripting` | R scripting and data analysis conventions (tidyverse, knitr::spin) |
-| `setup-benchmark` | Monte Carlo simulation study design (ADEMP framework) |
-| `peer-review` | Structured peer review generation for statistical/methodological papers |
-| `reproducibility-review` | Computational reproducibility review of code supplements |
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
+| `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
+| `peer-review` | Structured peer review generation for statistical/methodological papers |
+| `r-package-coding` | R package development standards (S3, roxygen2, checkmate, testthat) |
+| `r-scripting` | R scripting and data analysis conventions (tidyverse, knitr::spin) |
+| `reproducibility-review` | Computational reproducibility review of code supplements |
+| `setup-benchmark` | Monte Carlo simulation study design (ADEMP framework) |
+
+[^lrz-ssh]: Requires a one-time SSH multiplexing setup so Claude Code can reach the cluster without interactive 2FA prompts. See [`lrz-ssh-setup.md`](lrz-ssh-setup.md).
 
 ## Installation
 
