@@ -42,5 +42,7 @@ Skills are automatically discovered by Claude Code on next session start.
 library and seems worth browsing. The
 [`r-lib/cran-extrachecks`](https://github.com/posit-dev/skills/blob/main/r-lib/cran-extrachecks/SKILL.md)
 skill looks particularly useful — it covers the "must be right but hard to
-unit-test"^[thx [@jemus42](https://github.com/jemus42) for the pointer] class of CRAN submission checks. 
+unit-test"[^thx] class of CRAN submission checks. 
+
+[^thx]: TY [@jemus42](https://github.com/jemus42) for the pointer 
 
