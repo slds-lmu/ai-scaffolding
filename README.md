@@ -10,6 +10,7 @@ for academic / statistics workflows.
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
+| `make-quiz` | Create R/exams quiz questions for Moodle (stats/maths/ML lectures) |
 | `peer-review` | Structured peer review generation for statistical/methodological papers |
 | `r-package-coding` | R package development standards (S3, roxygen2, checkmate, testthat) |
 | `r-scripting` | R scripting and data analysis conventions (tidyverse, knitr::spin) |
