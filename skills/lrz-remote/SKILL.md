@@ -63,7 +63,7 @@ R is available through the module system. Always load `slurm_setup` first in bat
 
 ```bash
 module load slurm_setup
-module load r          # loads default R version
+module load r/{{VERSION}}-gcc13-mkl   # e.g. r/4.3.3-gcc13-mkl
 ```
 
 To discover available R versions:
@@ -97,7 +97,7 @@ ssh lrz 'module load slurm_setup && module load r/<VERSION>-gcc13-mkl && \
 
 Replace `<VERSION>` with the full module version (e.g., `4.3.3-gcc13-mkl`) and `<MAJOR.MINOR>` with the R major.minor version (e.g., `4.3`). If `pak` is not yet installed, install it first with `install.packages("pak")`.
 
-**Watch out:** If `.Rprofile` puts a versioned library directory (e.g., `4.4/`) first in `.libPaths()` from a previous R installation that's no longer available, that directory takes precedence. Install packages there, not to the current R version's default path.
+**Watch out:** If `.Rprofile` hardcodes a versioned library directory (e.g., `4.4/`) from a previous R installation that's no longer the active version, that directory takes precedence in `.libPaths()`. The right fix is to make `.Rprofile` version-dynamic (see troubleshooting table); as an immediate workaround, install packages to whichever path is first in `.libPaths()`.
 
 For packages with system dependencies (like `sf`, `terra`), you may need additional modules:
 ```bash
