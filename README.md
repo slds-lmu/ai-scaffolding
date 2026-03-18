@@ -7,6 +7,7 @@ for academic / statistics workflows.
 
 | Skill | Description |
 |---|---|
+| `claude-cli` | Invoke Claude Code CLI from Codex for external reviews and second opinions |
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
 | `cran-submission` | CRAN submission workflow (extra checks, rhub, revdep, pkgdown, parallelized) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |

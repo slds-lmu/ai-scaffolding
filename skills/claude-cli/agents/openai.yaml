@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude CLI"
+  short_description: "Invoke Claude Code from Codex"
+  default_prompt: "Use $claude-cli to call Claude Code for an external review or second opinion."
