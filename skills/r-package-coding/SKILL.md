@@ -331,6 +331,12 @@ RStudio recognizes these for code folding. **Never** use multi-line `# ====` blo
 | Long parameter lists | Group into control object |
 | Type-checking if-else chains | Use S3 methods |
 
+## CRAN Submission
+
+For preparing and submitting packages to CRAN (pre-flight checks, extra CRAN
+checks, pkgdown verification, rhub cross-platform checks, revdep checks,
+submission, post-acceptance), use the `cran-submission` skill (`/cran-submission`).
+
 ## Checklist
 
 Before commit:

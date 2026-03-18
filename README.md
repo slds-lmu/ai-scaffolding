@@ -8,6 +8,7 @@ for academic / statistics workflows.
 | Skill | Description |
 |---|---|
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
+| `cran-submission` | CRAN submission workflow (extra checks, rhub, revdep, pkgdown, parallelized) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
 | `make-quiz` | Create R/exams quiz questions for Moodle (stats/maths/ML lectures) |
@@ -40,10 +41,9 @@ Skills are automatically discovered by Claude Code on next session start.
 ## Other Sources
 
 - [posit-dev/skills](https://github.com/posit-dev/skills) is Posit's official skill
-library and seems worth browsing. The
-[`r-lib/cran-extrachecks`](https://github.com/posit-dev/skills/blob/main/r-lib/cran-extrachecks/SKILL.md)
-skill looks particularly useful — it covers the "must be right but hard to
-unit-test"[^thx] class of CRAN submission checks. 
+library and seems worth browsing. Our `cran-submission` skill incorporates the
+[`r-lib/cran-extrachecks`](https://github.com/posit-dev/skills/blob/main/r-lib/cran-extrachecks/SKILL.md)[^thx]
+checklist and adds rhub, revdep, pkgdown, and parallelized execution on top.
 
-[^thx]: TY [@jemus42](https://github.com/jemus42) for the pointer 
+[^thx]: TY [@jemus42](https://github.com/jemus42) for the pointer
 
