@@ -492,6 +492,46 @@ generate_data <- function(n, beta = coef(fit), sigma = sigma(fit)) {
 
 ---
 
+## 16. Double-IQR: Quantile of Pre-Computed Quantile
+
+**Symptom**: Error bars in aggregated plots represent a non-interpretable "spread of spreads"
+
+**Context**: When `cov_quality.rds` (or similar) stores per-cell pre-aggregated stats like
+`diag_ratio_iqr_low` (the 25th percentile of the ratio within that cell), aggregating over
+an additional grouping variable (e.g., n) requires care.
+
+**Wrong**:
+```r
+# diag_ratio_iqr_low is already the 25th percentile within each (n, snr, corr, grid) cell
+s2_cov_agg <- s2_cov_plot |>
+  group_by(snr_f, corr_f, grid_f, term_type, method) |>
+  summarize(
+    diag_ratio_lo = quantile(diag_ratio_iqr_low, 0.25, na.rm = TRUE),  # quantile of quantiles!
+    diag_ratio_hi = quantile(diag_ratio_iqr_high, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+**Right**:
+```r
+# Aggregate the median ratio across n values; IQR shows n-sensitivity
+s2_cov_agg <- s2_cov_plot |>
+  group_by(snr_f, corr_f, grid_f, term_type, method) |>
+  summarize(
+    diag_ratio = median(diag_ratio_median, na.rm = TRUE),
+    diag_ratio_lo = quantile(diag_ratio_median, 0.25, na.rm = TRUE),
+    diag_ratio_hi = quantile(diag_ratio_median, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+**Rule**: When aggregating pre-aggregated statistics, always track what each column represents.
+Taking a quantile of a pre-computed quantile produces a meaningful result only in rare cases
+(e.g., nested sampling designs). For plot error bars showing variability across a grouping
+factor (e.g., n), use `quantile(median_col, c(0.25, 0.75))`.
+
+---
+
 ## Quick Verification Script
 
 Run this before your main benchmark:

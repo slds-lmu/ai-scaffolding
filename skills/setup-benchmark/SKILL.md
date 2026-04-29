@@ -259,14 +259,17 @@ Building a benchmark is iterative. Follow these phases and **never skip review g
 0. **Known-answer validation**: Verify infrastructure on a trivial problem (e.g., OLS on linear model → ~95% coverage)
 1. **Single-fit debugging**: Run `debug_single_fit()` to verify one (dgp, method) works
 - **R1. Code review gate**: Run `/codex` or `/council-of-bots` reviews on all new files before piloting. Parallelize: assign 2-3 files per reviewer, spawn up to 3 reviewers concurrently. Fix all HIGH/CRITICAL findings, re-run known-answer tests.
-2. **Pilot calibration**: Screen factors one-at-a-time → find informative ranges → check interactions → screen methods → choose final design
-3. **Timing estimation**: Time a few reps, extrapolate to full run
-4. **Small-scale validation**: Run n_rep=10-50, check metrics look right
+2. **Smoke tests**: Verify end-to-end executability with **absolute minimum settings** — see below.
+3. **Pilot calibration**: Screen factors one-at-a-time → find informative ranges → check interactions → screen methods → choose final design
+4. **Timing estimation**: Time a few reps, extrapolate to full run
+5. **Small-scale validation**: Run n_rep=10-50, check metrics look right
 - **R2. Pre-production review**: Run `/council-of-bots` on pilot results + any code changes. Verify failure rates, metric plausibility, and expected rankings before committing to full run.
-5. **Full production run**: Final n_rep with incremental saves
+6. **Full production run**: Final n_rep with incremental saves
 - **R3. Results review**: Run `/council-of-bots` on final results before reporting. Check rankings match theory, MC SEs support conclusions, no suspicious patterns.
 
 **Always record computation times** in your metrics (add `fit_time` to output tibbles). This enables timing estimation and helps identify slow methods.
+
+**Smoke tests must be fast.** When verifying code runs end-to-end, minimize ALL expensive dimensions simultaneously: smallest n, fewest/cheapest DGP cells, coarsest grids, 1–2 reps. The goal is to exercise every code path (fit, extract, save, aggregate), not to produce meaningful statistics. Exclude expensive factor levels (large n, fine grids) entirely — if the code works for n=20 on a 30×40 grid, it works for n=80 on a 90×120 grid. Test expensive settings only when you specifically need to verify scaling behavior or timing. Always run smoke tests in background and parallelize.
 
 See `references/development-workflow.md` for detailed guidance on piloting, debugging, review gate procedures, and diagnostic visualizations.
 
@@ -286,15 +289,13 @@ See `references/development-workflow.md` for the SE ratio diagnostic and smoothi
 
 ## Visualization
 
-Beyond standard tables, use these diagnostic plots designed for simulation output:
+**Mandatory**: Never show bare means/medians without variability — always use
+boxplots, violins, or pointranges (median + IQR). Use interpretable ratio-scale
+labels (`0.1, 0.5, 1, 2, 10`) on log axes, not raw log values. Prefer
+pointranges over bar charts. See `references/visualization.md` for these rules
+and the diagnostic plot catalog (zip, lollipop, nested loop, heat map, Bland-Altman).
 
-- **Zip plot**: CIs ranked by |z-score|, colored by coverage — reveals patterns in non-coverage
-- **Lollipop plot**: Point estimate ± MC CI per method/scenario — compact method comparison
-- **Nested loop plot**: Performance across all factorial settings in one panel — interaction detection
-- **Heat map**: DGP rows × method columns, fill = metric — overview of large designs
-- **Paired comparison (Bland-Altman)**: Plot method differences (not raw values) to exploit paired design
-
-The `rsimsum` package generates zip, lollipop, nested loop, and heat plots via `autoplot()`. See `references/visualization.md` for R code and `references/r-packages.md` for the package ecosystem.
+The `rsimsum` package generates zip, lollipop, nested loop, and heat plots via `autoplot()`. See `references/r-packages.md` for the package ecosystem.
 
 ## Reporting
 

@@ -6,6 +6,37 @@ For single-fit diagnostic plots (truth vs estimate, z-score distribution, covera
 
 ---
 
+## Mandatory Rules
+
+**Never show bare means or medians without variability.** Every plot of a summary
+statistic must show the distribution or spread: boxplots, violin plots, or
+pointranges (median + IQR). A bar chart or line plot of medians alone hides tail
+risk and consistency — which are often the most important features in a benchmark.
+
+**Use interpretable labels on log-scale ratio axes.** When plotting ratios on a
+log scale, label the axis with the actual ratio values readers can interpret:
+`0.1, 0.2, 0.5, 1, 2, 5, 10` — never with raw log-transformed numbers like
+`-2.3, -0.7, 0, 0.7, 2.3`. The reference value (1 for ratios, 0 for
+differences) must be visually prominent (e.g., dashed line).
+
+```r
+# WRONG: raw log values on axis
+scale_y_continuous()  # after plotting log(ratio)
+
+# RIGHT: ratio-scale labels
+scale_y_log10(
+    breaks = c(0.1, 0.2, 0.5, 1, 2, 5, 10),
+    labels = c("0.1", "0.2", "0.5", "1", "2", "5", "10")
+)
+```
+
+**Prefer pointranges over bar charts for method comparison.** Bars waste ink and
+obscure differences at the top. Use `geom_pointrange(aes(ymin = q25, ymax = q75))`
+with `position_dodge()` for multi-method comparisons. Flip to horizontal
+(`coord_flip()` or swap x/y) when method names are long.
+
+---
+
 ## Zip Plot (Morris et al. 2019)
 
 Confidence intervals ranked by |z-score|, colored by whether they cover the truth. Reveals patterns in non-coverage (e.g., non-coverage concentrated at extremes).
