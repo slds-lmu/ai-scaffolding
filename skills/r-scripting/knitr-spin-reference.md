@@ -130,3 +130,9 @@ rmarkdown::render("analysis.R", output_format = "pdf_document")
 6. **Reproducibility**: Set `set.seed()` and `options(digits = N)` upfront
 7. **Progressive complexity**: Start simple, add complications incrementally
 8. **Figures**: Use chunk options for sizing; let plots render inline
+9. **Lists need blank `#'` lines**: Adjacent `#' -` items without a blank `#'` between them render as inline text, not `<ul>`/`<li>`. Always separate list items:
+   ```r
+   #' - First item
+   #'
+   #' - Second item
+   ```

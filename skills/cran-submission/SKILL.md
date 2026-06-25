@@ -138,14 +138,51 @@ urlchecker::url_update()   # fix redirects
 ```
 All URLs must be HTTPS, no redirects. Leave aspirational CRAN badge URLs as-is.
 
+### Non-ASCII Characters
+**Critical**: CRAN's R-devel pretest builds the PDF manual with LaTeX. Any
+non-ASCII characters in roxygen comments (em-dashes, tensor product symbols,
+approx-equal signs, smart quotes, etc.) cause fatal LaTeX errors. This passes
+`R CMD check` locally but **fails the CRAN pretest**.
+
+```bash
+# Scan R source and vignette source for non-ASCII (must return empty)
+grep -rPn '[^\x00-\x7F]' R/ vignettes/
+```
+
+Replace common offenders: `--` for em-dash, `\eqn{\otimes}` for tensor
+product in Rd math, `~` or `approx` for approximately-equal, straight
+quotes for smart quotes. Run this check **before** `devtools::document()`
+so regenerated man pages are also clean. Vignette `.Rnw` sources are also
+processed by LaTeX and fail on the same characters.
+
 ### Code Policies
 - No `T`/`F` -- use `TRUE`/`FALSE`
 - No `options(warn = -1)` -- use `suppressWarnings()`
 - No `installed.packages()` -- use `requireNamespace()`
 - Restore `par()`, `options()`, `setwd()` via `on.exit()`
-- Never write outside `tempdir()` (except `tools::R_user_dir()` with consent)
-- Max 2 cores in examples/tests/vignettes
-- Handle network failures gracefully with informative messages
+- Never write outside `tempdir()` -- including clipboards, `~/`, `.Rprofile`.
+  The one sanctioned exception is `tools::R_user_dir(pkg, which=...)` (R >= 4.0)
+  with explicit user opt-in, keeping contents small
+- Do not modify `.GlobalEnv` or set persistent env vars (`Sys.setenv`) that
+  leak outside the R session
+- Do not launch external apps (browsers, PDF viewers) in examples/tests/
+  vignettes unless closed afterwards
+- Max 2 cores in examples/tests/vignettes (includes BLAS threads, OpenMP,
+  `data.table::setDTthreads()`)
+- Handle network failures gracefully with informative `message()` (not
+  `stop()`); use HTTPS; handle HTTP 429/403 without retry storms
+- No binary executables in source; no `:::` to other packages' internals;
+  no `assert`/`abort`/`exit`/`STOP`/`q()` to terminate the R process
+
+### Example timing
+
+CRAN enforces per-example time budgets -- "examples should run for no
+more than a few seconds each". `R CMD check --as-cran` NOTEs examples
+exceeding ~5s elapsed, WARNs at ~10s+. Gate slow examples with
+`\donttest{}` (still runs on CRAN) or `@examplesIf` (conditional).
+**`\dontrun{}` is a red flag** and CRAN reviewers routinely demand its
+removal -- use only when the code genuinely cannot run in a non-interactive
+environment.
 
 ## Step 4: pkgdown Verification
 
@@ -216,6 +253,10 @@ rhub::rc_submit()      # submit checks
 **Run in background Agent** (can take hours). **Skip for first submissions.**
 Required for updates, especially if the API changed.
 
+**Scope** (per CRAN policy): check reverse strong dependencies, reverse
+suggests, AND the recursive strong dependencies of those — not just direct
+dependents. `revdepcheck::revdep_check()` handles this by default.
+
 ```r
 # One-time setup
 usethis::use_revdep()  # creates revdep/ directory
@@ -245,9 +286,11 @@ revdepcheck::revdep_report()
 
 1. Determine if breakage is a false positive, pre-existing, or real
 2. For real breakage from intentional API changes:
-   - Contact affected maintainers **at least 2 weeks** before submission
-   - Provide patches or PRs where possible
-3. Document everything in `cran-comments.md`
+   - Contact affected maintainers **at least 2 weeks before submission**
+     (CRAN policy — "ideally more"); provide patches or PRs where possible
+3. Document everything in `cran-comments.md`, including which packages are
+   affected and when their maintainers were informed (the CRAN submission
+   form explicitly asks for this)
 
 ### Custom revdep additions
 
@@ -290,14 +333,31 @@ For resubmissions, add a section explaining how previous feedback was addressed.
 # Bump version (removes .9000 dev suffix)
 usethis::use_version("minor")  # or "major" / "patch"
 
+# Run --as-cran on the TARBALL with R-devel (CRAN policy: the actual tarball
+# must be checked with current R-devel before upload)
+devtools::check_built(manual = TRUE, remote = TRUE)
+
 # Submit
 devtools::submit_cran()
 ```
 
-- Confirm via email link (mandatory)
-- Check status: https://CRAN.R-project.org/incoming/
-- Do not resubmit while a version is pending
-- If resubmitting: increment version number and explain changes
+### Submission policy rules
+
+- **Frequency cap**: CRAN's rule of thumb is updates "no more than every
+  1--2 months" for established packages. Batch fixes; do not submit small
+  patches weekly.
+- **Confirm** via email link (mandatory) to the maintainer address.
+- **Check status**: https://CRAN.R-project.org/incoming/
+- **Do not resubmit while a version is pending** review.
+- **Version must still bump on resubmission**, even after a rejected upload.
+- **Resubmit via the web form's "Optional comment" field**, not a separate
+  email. Explain what changed since the previous submission.
+- **All CRAN correspondence**: `CRAN-submissions@R-project.org` (new
+  submissions) or `CRAN@R-project.org` (published packages). Plain-text
+  ASCII only, no HTML, no attached tarballs.
+- **Maintainer must be a single person with a usable, unfiltered email**
+  (not a mailing list). If the maintainer address changes, send confirmation
+  from the previous address to `CRAN-submissions@R-project.org`.
 
 ## Step 9: Post-Acceptance
 

@@ -52,6 +52,7 @@ Install dependencies flexibly:
 - For R: install packages from `library()`/`require()` calls
 - For Python: install from `requirements.txt` or `import` statements. Always use `uv`.
 - For Julia, MATLAB, Stata, etc.: follow documented setup
+- **Compare authors' `sessionInfo()` versions against installed versions** for key packages. Version-dependent API changes (e.g., `predict()` method signatures) cause failures that look like code bugs but are environment issues. Use `remotes::install_version("pkg", version = "x.y-z")` when mismatches exist for core packages.
 - Document all packages installed and versions
 
 ### 5. Execute Code with Fixes
@@ -109,6 +110,12 @@ Output markdown using template in `assets/review-template.md`.
 - **Major**: Significantly impedes reproduction (missing docs, manual steps needed, partial failures)
 - **Minor**: Does not block reproduction (style issues, missing but inferable info)
 - **Suggestions**: Best practices not followed
+
+**Attribute fairly:** before rating, decide whose responsibility a failure is. Documented
+system-level requirements (OpenBLAS/LAPACKE, compilers, CUDA, OS) are the reproducer's job to
+provide — not author defects; provision them (or note you couldn't) and proceed. Only the
+supplement's own packaged dependencies and code are the authors' responsibility. See
+`references/checklist.md` → "Attribution: Author Defect vs. Reviewer Environment".
 
 ## Principles
 

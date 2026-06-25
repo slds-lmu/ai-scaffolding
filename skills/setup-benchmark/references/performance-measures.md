@@ -96,6 +96,29 @@ mc_se_rel_error <- 100 * (mod_se / emp_se) * sqrt(
 )
 ```
 
+**Grid-valued estimands: compute the ratio *within* each grid point, then summarize.**
+For a curve- or grid-valued estimand (e.g. S(t|x) or a smooth f(x) evaluated at
+several (t, x) points), the ModSE/EmpSE ratio must be formed *per point* and then
+summarized across points (e.g. median), never by pooling all the errors into one
+`sd()`:
+
+```r
+# WRONG: pooling errors across grid points before sd()
+emp_se <- sd(err)                       # err stacks all (t, x) together
+ratio  <- sqrt(mean(mod_se^2)) / emp_se
+
+# RIGHT: ratio per grid point, then summarize
+ratio_pt <- tapply(seq_along(err), list(t, x), function(i)
+    sqrt(mean(mod_se[i]^2)) / sd(err[i]))
+ratio <- median(ratio_pt, na.rm = TRUE)
+```
+
+The pooled `sd(err)` absorbs *cross-point bias heterogeneity* (different bias at
+different t) into "EmpSE", inflating it and producing a spuriously low ratio — it
+looks like the SEs are far too small when they are actually fine. (Verified: a pooled
+ratio of 0.44 was ≈0.97 once computed pointwise.) The same caution applies to any
+pooled EmpSE/RMSE for a grid-valued estimand: summarize pointwise, don't pool.
+
 ---
 
 ### Coverage

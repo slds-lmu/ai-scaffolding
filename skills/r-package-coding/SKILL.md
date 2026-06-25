@@ -17,6 +17,45 @@ Standards for R package development with minimal dependencies.
 
 Avoid tidyverse in core packages.
 
+### Depends / Imports / Suggests / Enhances
+
+A package appears in exactly **one** field. Decision rules:
+
+- **Imports**: default for required namespaces. Access with `::` or `@importFrom`.
+  Never `library()`/`require()` inside package code.
+- **Depends**: only when the user needs the package *attached* to the search path
+  when calling yours. Almost always wrong — prefer Imports.
+- **Suggests**: optional — used only in examples, tests, vignettes, or code paths
+  gated by `requireNamespace()`. Package must function without them.
+- **Enhances**: methods for another package's classes, accessed via `::`.
+- **LinkingTo**: C/C++ headers only. Do NOT also list in Depends/Imports.
+
+### Suggests discipline
+
+Every use of a Suggested package must be guarded. If a package appears in
+Suggests but you find an unguarded `::` call or `@importFrom` pointing to it,
+either gate the call or move the package to Imports.
+
+```r
+# R code
+if (!requireNamespace("pkg", quietly = TRUE)) {
+  cli::cli_abort("Install {.pkg pkg} to use this feature.")
+}
+pkg::do_thing()
+
+# Tests
+skip_if_not_installed("pkg")
+
+# Vignette chunks
+#| eval: !expr requireNamespace("pkg", quietly = TRUE)
+
+# Roxygen examples — prefer @examplesIf over \dontrun
+#' @examplesIf requireNamespace("pkg", quietly = TRUE)
+```
+
+Verify discipline with `_R_CHECK_DEPENDS_ONLY_=true` (installs only hard deps)
+and `_R_CHECK_FORCE_SUGGESTS_=false` (simulates missing Suggests).
+
 ## Design Principles
 
 - **Top-down design**: Design before coding; decompose problems into subtasks, then implement
@@ -179,6 +218,34 @@ cli::cli_inform("i" = "Using default {.code k = {k}}")
 
 Cross-reference with `[function_name()]`. Document *why*, not just *what*.
 
+### Conditional examples
+
+Four forms with distinct semantics — pick the right one:
+
+| Tag | Runs during `R CMD check`? | Runs on CRAN pretest? | When to use |
+|-----|---------|-----------|-------------|
+| (bare) | yes | yes | default |
+| `\donttest{}` | not by default; yes with `--run-donttest` | **yes** (CRAN runs donttest) | slow but correct (>5s) |
+| `@examplesIf cond` | only if `cond` is `TRUE` | only if `cond` is `TRUE` | needs suggested pkg, network, etc. |
+| `\dontrun{}` | **never** | never | cannot run in CI (interactive GUI, needs credentials, writes user files) |
+
+`\dontrun{}` is heavily over-used and CRAN reviewers routinely push back on it.
+Default to `\donttest{}` or `@examplesIf` — these preserve checkable coverage.
+
+```r
+#' @examplesIf rlang::is_installed("dplyr")
+#' library(dplyr)
+#' my_data |> my_fun()
+```
+
+Mathematical notation: use `\eqn{LaTeX}{ASCII}` two-arg form — the second arg
+is the plain-text fallback shown in the terminal help viewer, avoiding
+non-ASCII issues:
+
+```r
+#' @param x A value such that \eqn{x \otimes y}{x (x) y} holds.
+```
+
 ## Functional Patterns (purrr)
 
 ```r
@@ -278,6 +345,35 @@ term_sum <- Reduce(`+`, pred_terms) + attr(pred_terms, "constant")
 expect_equal(term_sum, pred_response, tolerance = 1e-6)
 ```
 
+### Skipping tests
+
+CRAN runs tests under tight time budgets and without internet. Gate anything
+slow, non-deterministic, or environment-dependent:
+
+```r
+test_that("fits on real data", {
+  skip_on_cran()               # slow / heavy / uses resources CRAN won't have
+  skip_if_offline()            # needs network
+  skip_if_not_installed("pkg") # needs a Suggests
+  skip_on_os("windows")        # platform-specific
+  # ...
+})
+```
+
+Set random seeds inside each test; they are never set automatically.
+
+### Mocking
+
+`testthat::with_mock()` is deprecated. Use `local_mocked_bindings()` for
+scoped replacements:
+
+```r
+test_that("handles API timeout", {
+  local_mocked_bindings(call_api = \(...) stop("timeout"))
+  expect_error(fetch_data(), "timeout")
+})
+```
+
 ### Helper Functions
 Extract common patterns to reduce duplication:
 
@@ -308,8 +404,9 @@ devtools::test()       # Run tests
 
 1. **Format**: `air format .` in the terminal. A pre-commit hook enforces this—committing unformatted code will fail.
 2. **Document & check** (for non-trivial changes—new/changed exports, roxygen edits, NAMESPACE changes, new dependencies, test additions): run `devtools::document()` then `devtools::check()` in R. Both must pass before committing.
+3. **Sync pkgdown** (when the public surface changes—new/renamed/removed exports, new vignettes/articles, renamed help topics): update `_pkgdown.yml` so every exported topic stays in the `reference:` index and new articles land in the `articles:`/navbar entries, then run `pkgdown::check_pkgdown()` (fast, no full site build). This is easy to forget because `devtools::check()` does *not* flag a stale `_pkgdown.yml`—a missing or renamed topic only surfaces when the site builds, often much later in CI or at release.
 
-Skip step 2 only for minor internal edits (e.g., tweaking logic inside an unexported helper with no doc or test changes).
+Skip steps 2–3 only for minor internal edits (e.g., tweaking logic inside an unexported helper with no doc or test changes).
 
 **Important**: Always run `devtools::document()` before `devtools::test()` or `devtools::check()`. This regenerates the NAMESPACE file from `@importFrom` and `@export` directives. Skipping this step after adding imports causes "object not found" errors even for exported functions.
 
@@ -342,6 +439,7 @@ submission, post-acceptance), use the `cran-submission` skill (`/cran-submission
 Before commit:
 - [ ] **`air format .`** (terminal) — always, no exceptions
 - [ ] **`devtools::document()` then `devtools::check()`** — for any non-trivial change
+- [ ] **`pkgdown::check_pkgdown()`** — when exports/vignettes/help topics change (keep `_pkgdown.yml` reference index + articles in sync)
 - [ ] Pure functions (no globals)
 - [ ] Complete roxygen2 with examples
 - [ ] checkmate validation at boundaries

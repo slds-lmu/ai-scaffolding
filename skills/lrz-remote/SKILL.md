@@ -33,6 +33,8 @@ The user MUST provide the following before you can do real work. If any are miss
 | Home directory | `/dss/dsshome1/lxc04/rs86ghi2` | `ssh lrz "echo \$HOME"` |
 | Work/scratch directory | `/dss/dssfs04/...` or similar | `ssh lrz "echo \$SCRATCH_DSS \$WORK"` |
 | Project account (if needed) | `pn12ab` | `ssh lrz "sacctmgr show assoc user=\$USER format=Account -n"` |
+| R module | `r/4.3.3-gcc13-mkl` | `ssh lrz "module av r 2>&1"` |
+| Active user R lib | `~/R/x86_64-pc-linux-gnu-library/4.3/` | first entry in `.libPaths()` (`.Rprofile` is version-dynamic) |
 | Email for SLURM notifications | `bla.blub@stat.uni-muenchen.de` | Ask user |
 
 Store these in a local project file (e.g., `.lrz_config`) so you don't have to re-ask.
@@ -54,6 +56,12 @@ Local project directories and their LRZ counterparts **share the same folder nam
 # Fallback: scp a specific file
 scp local_script.R lrz:~/myproject/scripts/
 ```
+
+**CRITICAL: Always keep local copies of source files.** When transferring scripts to
+LRZ, **copy** them — never move or delete the local originals. Source files on LRZ
+are hard to recover if they aren't in version control (no backups, no editor history).
+If files were generated in a Claude Code session and only exist locally, ensure they
+are saved locally before (or after) uploading to LRZ.
 
 ## The R Environment on LRZ
 
@@ -108,15 +116,40 @@ ssh lrz "module av 2>&1 | grep -i <depname>"
 
 ### Choosing a Partition
 
-| Partition | Use case | Nodes shared? | Max cores/job | Max time |
-|---|---|---|---|---|
-| `serial_std` | Small R jobs (1-few cores) | Yes (shared) | Limited | 48h |
-| `serial_long` | Long-running small jobs | Yes (shared) | Limited | 96h+ |
-| `cm4_tiny` | Multi-core, single-node | Yes (shared) | up to full node | 24-48h |
-| `cm4_std` | Full-node exclusive | No (exclusive) | full node | 48h |
-| `cm4_inter` | Interactive testing | Yes (shared) | varies | short |
+Use the official LRZ "Job Processing on the Linux-Cluster" page as the source
+of truth for limits and required flags. Do not infer queue rules from
+application-specific examples if they disagree with the main job-processing
+documentation.
 
-**Default recommendation for parallelized R**: Use `serial_std` for jobs needing ≤16 cores, `cm4_tiny` for single-node multi-core jobs needing more, and `cm4_std` only when you truly need a whole node.
+| Partition | Cluster | Intended use | CPU range per job | Max runtime | Node usage | Mandatory flags |
+|---|---|---|---|---|---|---|
+| `serial_std` | `serial` | Batch jobs on 1 node | `1-16` physical cores | `24h` | shared | `--clusters=serial`, `--partition=serial_std` |
+| `serial_long` | `serial` | Longer batch jobs on 1 node | see LRZ docs | `168h` | shared | `--clusters=serial`, `--partition=serial_long` |
+| `cm4_tiny` | `cm4` | Batch jobs on 1 node | `17-112` physical cores | `24h` | shared | `--clusters=cm4`, `--partition=cm4_tiny` |
+| `cm4_std` | `cm4` | Large batch jobs on `2-4` nodes | `112-448` physical cores | `24h` | exclusive | `--clusters=cm4`, `--partition=cm4_std`, `--qos=cm4_std` |
+| `cm4_inter` | `inter` | Interactive testing via `salloc` | `1-112` physical cores | `8h` | shared | `--clusters=inter`, `--partition=cm4_inter` |
+
+**Queue selection rules**:
+- Use `serial_std` for batch jobs that need at most `16` physical cores on one
+  node.
+- Use `cm4_tiny` only for genuinely parallel single-node jobs that need more
+  than `16` physical cores. LRZ's main job-processing page currently states a
+  minimum of `17` physical cores there.
+- Use `cm4_std` only for jobs that need `2-4` nodes or `112+` physical cores.
+  It is an exclusive-node queue.
+- Use `cm4_inter` only for short interactive tests. It belongs to cluster
+  `inter` and is not the default batch queue.
+- Do not switch to `serial_long` just to chase a faster start; it is for longer
+  walltimes, not as a general "less busy" substitute.
+- LRZ policy explicitly says very small jobs belong on the serial cluster;
+  `cm4_tiny` and `cm4_std` are reserved for efficiently parallelized workloads.
+
+**Memory guidance**:
+- On shared partitions (`serial_std`, `serial_long`, `cm4_tiny`, `cm4_inter`),
+  memory scales with allocated CPU cores by default.
+- If the job needs more than the default share, specify `--mem` explicitly.
+- Do not assume application-specific examples' memory recommendations are
+  generally valid for R; size memory from the workload.
 
 ### SLURM Job Script Template for R
 
@@ -143,6 +176,9 @@ Every job script you generate should follow this template. Adapt the resource re
 # Load modules
 module load slurm_setup
 module load r/{{R_VERSION}}-gcc13-mkl   # e.g. r/4.3.3-gcc13-mkl
+
+# --export=NONE strips env vars; ensure user R library is discoverable
+export R_LIBS_USER="${HOME}/R/x86_64-pc-linux-gnu-library/{{R_MAJOR.MINOR}}"
 
 # Run the R script
 Rscript {{SCRIPT_PATH}}
@@ -186,8 +222,12 @@ ssh lrz "cd ~/project && sed 's/old_script/new_script/' job.slurm | sbatch"
 **Step 4: Monitor**
 ```bash
 # Check queue status
-ssh lrz "squeue --clusters=serial -j {{JOB_ID}} 2>/dev/null"
+ssh lrz "squeue --clusters={{CLUSTER}} -j {{JOB_ID}} 2>/dev/null"
 ```
+
+LRZ explicitly warns against high-frequency polling of Slurm. Do not automate
+`squeue`/`sacct` checks every few seconds. Prefer intervals on the order of
+minutes; their example safe `watch` interval is `600` seconds.
 
 **Important**: if the job is no longer in `squeue`, it has already completed (or failed) — this is normal for short jobs. Do not interpret absence from the queue as an error. Immediately check the logs:
 
@@ -199,7 +239,7 @@ ssh lrz "cat ~/project/logs/{{JOB_NAME}}.{{JOB_ID}}.out"
 ssh lrz "grep -v 'Loading\|requirement' ~/project/logs/{{JOB_NAME}}.{{JOB_ID}}.err || true"
 
 # Job accounting (confirms exit code and resource use)
-ssh lrz "sacct --clusters=serial -j {{JOB_ID}} --format=JobID,State,ExitCode,Elapsed,MaxRSS"
+ssh lrz "sacct --clusters={{CLUSTER}} -j {{JOB_ID}} --format=JobID,State,ExitCode,Elapsed,MaxRSS"
 ```
 
 The `.err` log always contains module load lines (e.g. `Loading r/4.3.3-gcc13-mkl`) — these are not errors. A successful job has `ExitCode 0:0` in `sacct` and the expected output in `.out`.
@@ -349,9 +389,13 @@ ssh lrz "quota -s"
 | `module: command not found` | Missing `--get-user-env` or `--export=NONE` mismatch | Ensure both flags are in the job script |
 | R package not found | User library not on `.libPaths()` | Check `.Rprofile`, add `.libPaths()` call in script |
 | Wrong package version loaded | `.Rprofile` hardcodes a stale versioned lib dir (e.g., `4.4/` when only R 4.3 is available) | Fix `.Rprofile` to use a version-dynamic `.libPaths()` call (see Installing R Packages section) |
+| Isolated-lib package shadowed by the shared user lib | A package installed in BOTH a private lib and the shared `~/R/...4.3` lib resolves to the shared copy — `.Rprofile` runs *after* `R_LIBS_USER` and re-prepends the shared path, so `R_LIBS_USER` ordering does not win | Prepend the private lib **in-script**: `.libPaths(c(Sys.getenv("MY_LIB"), .libPaths()))` at the top of the Rscript, then `stopifnot(exists("expected_function"))` to assert the right copy loaded |
+| `pak` "Could not solve package dependencies" on R 4.3.3 | `pak` refuses partial solutions when a newest transitive dep needs a newer R (e.g. current `rms`, pulled in by `pec`, requires R ≥ 4.4) | Pin the older dep first: `pak::pkg_install("rms@6.7-1")`, then `install.packages()` the rest (missing-only via a `requireNamespace` check — see Installing R Packages) |
 | Out of memory (OOM killed) | Didn't request enough `--mem` | Increase `--mem`, check `sacct --format=MaxRSS` |
 | Permission denied on output | Output directory doesn't exist | `mkdir -p` before submitting |
 | `scp` fails | Outgoing SSH blocked from LRZ | Always `scp` FROM your laptop, never from LRZ |
+| `unable to load shared object ... libblas.so.3` | Package .so linked against system BLAS (absent on compute nodes; they use MKL) | Reinstall the package from source after `module load r/...` so it compiles against MKL |
+| `rlang::is_installed()` returns FALSE despite package being in `.libPaths()` | Transitive dependency has broken .so (see libblas row above) | Fix the broken dep, then `devtools::load_all()` will pass |
 
 ## Safety Rules
 

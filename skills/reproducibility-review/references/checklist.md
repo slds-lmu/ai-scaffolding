@@ -167,3 +167,23 @@ When reporting issues, classify by severity:
 - Could use better tooling (Makefile, renv, etc.)
 - Code could be more modular
 - Documentation could be more detailed
+
+## Attribution: Author Defect vs. Reviewer Environment
+
+Before assigning a severity, decide *whose responsibility* a failure is. Reproducing a
+supplement requires the reviewer to provision an environment; do not count that provisioning
+against the authors.
+
+- **Documented system-level requirements are the reproducer's job, not a defect.** If the
+  README/docs state a dependency the host must supply — OpenBLAS/LAPACKE, a C/C++ toolchain,
+  CUDA, a specific OS — and it is missing on your machine, that is your environment to fix, not
+  a finding. Install it (or note that you could not, e.g. no root) and proceed. At most, suggest
+  a prebuilt wheel or pure-Python fallback as an *optional* convenience — never a required fix.
+- **Author-side findings (these DO count):** undeclared or unpinned **language packages they
+  actually use** (Python/R deps), broken or version-drifted code in their own packages (e.g. a
+  call removed in a newer NumPy, a changed library API), missing scripts, hardcoded paths, and
+  crashes in their own code.
+- Rule of thumb: **documented system dependencies = reproducer's responsibility; the
+  supplement's own packaged dependencies and code = the authors' responsibility.** Flagging a
+  documented system-library requirement as a Critical/Major issue is unfair and undermines the
+  review's credibility.

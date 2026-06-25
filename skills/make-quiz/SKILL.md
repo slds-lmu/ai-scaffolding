@@ -1,23 +1,22 @@
 ---
 name: make-quiz
 description: |
-  Create quiz questions in R/exams format for statistics, mathematics, or ML lectures.
-  Use when the user asks to: create quiz questions, make Moodle quizzes, generate R/exams
-  questions, write exam questions for a slide set or lecture, or says "/make-quiz".
-  Produces schoice, mchoice, and num questions at mixed difficulty levels. Output renders
-  to Moodle XML via exams2moodle() or to HTML for preview. Works with any course language.
+  Create comprehensive quiz questions in R/exams format for FMM course slide sets.
+  Use when the user asks to: create quiz questions, make Moodle quizzes, generate
+  R/exams questions, write exam questions for a slide set, or says "/make-quiz".
+  Produces schoice, mchoice, and num questions at mixed difficulty levels. Output
+  renders to Moodle XML via exams2moodle(). Questions are in German.
 ---
 
 # Make Quiz Questions (R/exams)
 
-Create quiz questions in [R/exams](https://www.R-exams.org/) format for lecture content
-in statistics, mathematics, or machine learning.
+Create quiz questions in R/exams format for FMM lecture slide sets.
 
 ## Workflow
 
-### 1. Read and Analyze Source Material
+### 1. Read and Analyze Slides
 
-Read the lecture slides/notes. Identify:
+Read the .Rmd file in `/slides/`. Identify:
 - Definitions and theorems
 - Important properties and relationships
 - Practical examples and calculations
@@ -25,7 +24,7 @@ Read the lecture slides/notes. Identify:
 
 ### 2. Plan Question Coverage
 
-Aim for **10-15 questions** per lecture/chapter:
+Aim for **10-15 questions** per slide set:
 
 | Category | Difficulty | ~Share |
 |----------|-----------|--------|
@@ -55,9 +54,9 @@ library(exams)  # if needed
 
 Question
 ========
-[Clear, precise question text]
+[Clear, precise question text in German]
 
-[Standard LaTeX only -- no custom macros!]
+[Standard LaTeX only!]
 
 Answerlist
 ----------
@@ -67,15 +66,15 @@ Answerlist
 
 Solution
 =========
-[Detailed explanation]
+[Detailed explanation in German]
 
 [Step-by-step calculation if applicable]
 
 Answerlist
 ----------
-* [Correct/Wrong. Explanation for option 1]
-* [Correct/Wrong. Explanation for option 2]
-* [Correct/Wrong. Explanation for option 3]
+* [Richtig/Falsch. Explanation for option 1]
+* [Richtig/Falsch. Explanation for option 2]
+* [Richtig/Falsch. Explanation for option 3]
 
 Meta-information
 ================
@@ -88,43 +87,27 @@ extol: [tolerance for num type]
 
 ### 5. CRITICAL: Standard LaTeX Only
 
-Quiz questions render in Moodle/HTML with **standard MathJax**. Custom macros from
-course slides will NOT work. Always use standard LaTeX:
+Quiz questions render in Moodle with standard MathJax. Custom macros will NOT work.
 
-- Vectors/matrices: `\mathbf{x}`, `\mathbf{A}` (not custom shortcuts like `\bx`, `\bA`)
-- Bold Greek: `\boldsymbol{\beta}` (not `\bbeta`)
-- Number sets: `\mathbb{R}`, `\mathbb{N}` (not `\R`, `\N`)
-- Accents: `\hat{x}`, `\tilde{x}` (not `\wh{x}`, `\wt{x}`)
-
-If the course slides use custom macros, identify them and translate to standard LaTeX.
-The bundled [scripts/fix_latex_macros.sh](scripts/fix_latex_macros.sh) can batch-fix
-common patterns.
+| NEVER use | ALWAYS use instead |
+|-----------|--------------------|
+| `\bx`, `\by`, `\bA`, `\bX` | `\mathbf{x}`, `\mathbf{y}`, `\mathbf{A}`, `\mathbf{X}` |
+| `\bbeta`, `\btheta` | `\boldsymbol{\beta}`, `\boldsymbol{\theta}` |
+| `\R`, `\N`, `\C` | `\mathbb{R}`, `\mathbb{N}`, `\mathbb{C}` |
+| `\wh{x}`, `\wt{x}` | `\hat{x}`, `\tilde{x}` |
+| `\eps` | `\varepsilon` or `\epsilon` |
 
 ### 6. Formatting Rules
 
-- **NO extra text after Answerlist in Solution section** (no summary bullets after the answer explanations)
+- **NO extra text after Answerlist in Solution section** (no "Zusammenfassung:", "Bemerkung:" with bullets)
 - **Match exsolution length to answer count**: schoice has exactly one "1"; mchoice has as many positions as options
-- **exshuffle**: TRUE when order doesn't matter, FALSE when order is meaningful or answers reference each other
+- **exshuffle**: TRUE when order doesn't matter, FALSE when order is meaningful
 
 ### 7. File Organization
 
-Recommended directory structure:
-
-```
-quiz/
-├── Makefile              ← auto-discovers chapters (see assets/)
-├── .gitignore            ← ignore generated files (see assets/)
-├── 01-topic-name/
-│   ├── concept_aspect.Rmd
-│   └── ...
-├── 02-another-topic/
-│   └── ...
-└── test_rendering.R      ← verify all questions (see scripts/)
-```
-
+- Create subfolder: `/quiz/[chapter-name]/`
+- Descriptive filenames: `[concept]_[aspect]_[difficulty].Rmd`
 - One question per file
-- Descriptive filenames: `[concept]_[aspect].Rmd`
-- Group by chapter/topic in numbered subdirectories
 
 ### 8. Review Checklist
 
@@ -149,12 +132,10 @@ Check: XML file created, no warnings, reasonable file size.
 
 ### 10. Clean Up and Render
 
-Delete temporary files, then use the bundled Makefile:
+Delete temporary files, then use the Makefile in `/quiz`:
 
 ```bash
-cd quiz
-make 01-topic-name-quiz -B    # renders XML + HTML for one chapter
-make all                       # lists available targets
+make 04-lgs-quiz -B
 ```
 
 ## Output Summary
@@ -167,7 +148,7 @@ After creating questions, provide:
 
 ## Examples
 
-See [references/examples.md](references/examples.md) for complete template questions -- one per type
+See [references/examples.md](references/examples.md) for complete template questions — one per type
 (num with parametrization, schoice conceptual, mchoice properties).
 
 ## Bundled Scaffolding
@@ -176,9 +157,10 @@ This skill includes ready-to-use infrastructure for the quiz directory.
 
 ### Setting up a new quiz directory
 
-Copy these files into the quiz root:
+Copy these files into the quiz root (e.g., `quiz/`):
 
-- [assets/Makefile](assets/Makefile) -- Auto-discovers chapter subdirs (`[0-9]+-*/`), renders to Moodle XML and HTML.
+- [assets/Makefile](assets/Makefile) -- Auto-discovers chapter subdirs, renders to Moodle XML and HTML.
+  Usage: `make 04-lgs-quiz -B`
 - [assets/.gitignore](assets/.gitignore) -- Ignores generated output files.
 
 ### Scripts
@@ -186,10 +168,9 @@ Copy these files into the quiz root:
 - [scripts/test_rendering.R](scripts/test_rendering.R) -- Test all questions across all chapters.
   Run from quiz root: `Rscript test_rendering.R [moodle|html]`.
   Auto-discovers chapter directories matching `[0-9]+-*` pattern.
-- [scripts/fix_latex_macros.sh](scripts/fix_latex_macros.sh) -- Batch-replace common custom LaTeX
-  macros with standard MathJax-compatible LaTeX in all .Rmd files.
-  Run from quiz root: `bash fix_latex_macros.sh`. Edit the sed patterns to match your
-  course's custom macros.
+- [scripts/fix_latex_macros.sh](scripts/fix_latex_macros.sh) -- Batch-replace custom LaTeX macros
+  (`\bx`, `\R`, etc.) with standard MathJax-compatible LaTeX in all .Rmd files.
+  Run from quiz root: `bash fix_latex_macros.sh`
 
 ### Prerequisites
 
@@ -197,9 +178,9 @@ R packages: `exams` (CRAN). No other dependencies.
 
 ## Common Pitfalls
 
-- Using custom LaTeX macros (always use standard LaTeX for Moodle compatibility)
-- Extra text after Answerlist (causes exsolution/solutionlist mismatch warning)
+- Using custom LaTeX macros (always use standard LaTeX)
+- Extra text after Answerlist (causes exsolution/solutionlist mismatch)
 - Creating cloze questions (split into separate questions instead)
-- Too many hard questions (keep most Easy/Medium for formative quizzes)
-- Missing parametrization (add randomization for numerical calculations)
+- Too many hard questions (keep most Easy/Medium)
+- Missing parametrization (add randomization for calculations)
 - Wrong exshuffle (use FALSE when order matters)
