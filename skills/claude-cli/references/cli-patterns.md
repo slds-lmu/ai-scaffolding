@@ -64,7 +64,7 @@ For large reviews:
 Suggested command shape for Codex:
 
 ```bash
-/home/fabians/.claude/skills/claude-cli/scripts/claude-run.sh \
+$HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
   --prompt-file /tmp/claude-review-context.md \
   --job-dir /tmp/claude-review-job \
   --target /abs/path/project/file1.R \

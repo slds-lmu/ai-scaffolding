@@ -18,7 +18,7 @@ It covers both tiny prompts and large reviews where Claude should read files fro
 Quick prompt, foreground:
 
 ```bash
-/home/fabians/.claude/skills/claude-cli/scripts/claude-run.sh \
+$HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
   --prompt-text "Explain what tf_interpolate() does in 5 bullets." \
   --model sonnet
 ```

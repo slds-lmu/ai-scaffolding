@@ -1,0 +1,3 @@
+# Packaged-skill build artifacts (e.g. from skill-creator's package_skill.py)
+skills/*.zip
+skills/*.skill

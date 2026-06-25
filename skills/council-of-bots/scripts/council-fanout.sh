@@ -23,7 +23,7 @@ set -uo pipefail
 # always on PATH for non-login shells. Make sure we can find it.
 export PATH="$HOME/.local/bin:$PATH"
 
-CLAUDE_RUNNER="${CLAUDE_RUNNER:-/home/fabians/.claude/skills/claude-cli/scripts/claude-run.sh}"
+CLAUDE_RUNNER="${CLAUDE_RUNNER:-$HOME/.claude/skills/claude-cli/scripts/claude-run.sh}"
 
 CONTEXT_FILE="${1:?Usage: council-fanout.sh <context-file> [--no-codex] [--no-gemini]}"
 shift
