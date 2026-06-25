@@ -19,6 +19,10 @@
 
 set -uo pipefail
 
+# The Antigravity `agy` CLI (Gemini leg) installs to ~/.local/bin, which is not
+# always on PATH for non-login shells. Make sure we can find it.
+export PATH="$HOME/.local/bin:$PATH"
+
 CLAUDE_RUNNER="${CLAUDE_RUNNER:-/home/fabians/.claude/skills/claude-cli/scripts/claude-run.sh}"
 
 CONTEXT_FILE="${1:?Usage: council-fanout.sh <context-file> [--no-codex] [--no-gemini]}"
@@ -181,25 +185,61 @@ elif [ "$RUN_CLAUDE" -eq 1 ] && [ "$CLAUDE_VIA_CLI" -eq 1 ]; then
   echo "SKIP: Claude CLI runner not found or not executable: $CLAUDE_RUNNER"
 fi
 
-# --- Gemini ---
-if [ "$RUN_GEMINI" -eq 1 ] && command -v gemini &>/dev/null; then
+# --- Gemini (via the Antigravity `agy` CLI) ---
+# The standalone `gemini` CLI lost access to the free Code Assist tier
+# (IneligibleTier / UNSUPPORTED_CLIENT), so the Gemini reviewer now runs through
+# Antigravity's `agy` CLI in print mode. Three things bite if you change this:
+#   * the prompt is a positional ARGUMENT (-p "$PROMPT"), NOT stdin — stdin mode
+#     mis-parses the flags that follow;
+#   * --dangerously-skip-permissions is REQUIRED. `agy` is an agentic coding CLI;
+#     without auto-approval its agent loop blocks on a tool-permission prompt for
+#     any non-trivial generation and hangs silently until the timeout. (A canned
+#     one-word reply still returns, which makes the hang easy to misread as
+#     "the model is just slow" — it is not.)
+#   * reasoning effort is baked into the model label, e.g. "(High)" / "(Low)".
+# Override the model with COUNCIL_GEMINI_MODEL; list options with `agy models`.
+if [ "$RUN_GEMINI" -eq 1 ] && command -v agy &>/dev/null; then
   OUTFILE="${PREFIX}-gemini.txt"
-  echo "Launching Gemini..."
+  ERRLOG="${PREFIX}-gemini-stderr.log"
+  GEMINI_MODEL="${COUNCIL_GEMINI_MODEL:-Gemini 3.1 Pro (High)}"
+  echo "Launching Gemini (agy: ${GEMINI_MODEL})..."
   (
-    if echo "$FULL_PROMPT" | timeout "$BOT_TIMEOUT" gemini --yolo \
-        --output-format text > "$OUTFILE" 2>/dev/null; then
+    AGY_ARGS=(-p "$FULL_PROMPT" --model "$GEMINI_MODEL"
+              --dangerously-skip-permissions --print-timeout "${BOT_TIMEOUT}s")
+    for dir in "${ADD_DIRS[@]}"; do
+      AGY_ARGS+=(--add-dir "$dir")
+    done
+    # Outer hard-kill sits a little past agy's own --print-timeout so the CLI
+    # can flush a partial answer before SIGTERM rather than being cut mid-write.
+    if timeout "$(( BOT_TIMEOUT + 20 ))" agy "${AGY_ARGS[@]}" \
+        > "$OUTFILE" 2>"$ERRLOG"; then
       sanitize_output "$OUTFILE"
     else
       EXIT_CODE=$?
       if [ $EXIT_CODE -eq 124 ]; then
         echo "[TIMEOUT after ${BOT_TIMEOUT}s]" > "$OUTFILE"
+      else
+        # Non-timeout failure. agy writes the cause to stderr and leaves stdout
+        # empty, so surface a diagnostic instead of writing nothing.
+        {
+          echo "[ERROR: agy exited with code ${EXIT_CODE} and produced no review]"
+          if grep -qi 'sign in\|please sign\|unauthenticated\|not signed' "$ERRLOG" 2>/dev/null; then
+            echo "Cause: agy is not signed in. Run 'agy' once interactively to authenticate,"
+            echo "then re-run the council."
+          fi
+          if [ -s "$ERRLOG" ]; then
+            echo "--- agy stderr (tail) ---"
+            tail -n 20 "$ERRLOG"
+          fi
+        } > "$OUTFILE"
       fi
     fi
+    rm -f "$ERRLOG"
   ) &
   PIDS+=($!)
   BOTS+=("gemini")
 elif [ "$RUN_GEMINI" -eq 1 ]; then
-  echo "SKIP: gemini not found on PATH"
+  echo "SKIP: agy (Antigravity CLI) not found on PATH"
 fi
 
 if [ ${#PIDS[@]} -eq 0 ]; then

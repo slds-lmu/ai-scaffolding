@@ -8,7 +8,7 @@ for academic / statistics workflows.
 | Skill | Description |
 |---|---|
 | `claude-cli` | Invoke Claude Code CLI from Codex for external reviews and second opinions |
-| `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude) |
+| `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude)[^council-agy] |
 | `cran-submission` | CRAN submission workflow (extra checks, rhub, revdep, pkgdown, parallelized) |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
@@ -20,6 +20,8 @@ for academic / statistics workflows.
 | `setup-benchmark` | Monte Carlo simulation study design (ADEMP framework) |
 
 [^lrz-ssh]: Requires a one-time SSH multiplexing setup so Claude Code can reach the cluster without interactive 2FA prompts. See [`lrz-ssh-setup.md`](lrz-ssh-setup.md).
+
+[^council-agy]: **Gemini leg needs setup.** The standalone `gemini` CLI lost free-tier access, so the Gemini reviewer now runs through the Antigravity [`agy`](https://antigravity.google) CLI in non-interactive print mode. Because `agy` is an *agentic* CLI, it would otherwise block on a tool-permission prompt and hang, so the script calls it with **`--dangerously-skip-permissions`**. For the Gemini leg to work you must therefore: (1) install `agy` and sign in once interactively (`agy`) with `~/.local/bin` on `PATH`; and (2) **grant the calling agent permission to run this** — in Claude Code, the `agy` call is encapsulated inside the fan-out script, so allowing the skill's `Bash(bash ~/.claude/skills/*)` invocation plus a `Bash(agy *)` rule is enough; other harnesses need an equivalent standing approval for an auto-approved agent. Without this, the Gemini leg is skipped or returns a diagnostic — Codex and Claude still run. Default model is `Gemini 3.1 Pro (High)`; override via `COUNCIL_GEMINI_MODEL` (see `agy models`).
 
 ## Installation
 

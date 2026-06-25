@@ -54,5 +54,10 @@ The prompt contract stays the same even though the Claude launch mechanism chang
 ## Notes
 
 - Codex capture uses `codex exec -o` because stdout capture can be empty otherwise.
-- Gemini capture uses stdin with `--yolo --output-format text`.
+- Gemini runs via the Antigravity `agy` CLI in print mode: the prompt is passed
+  as a positional argument (`agy -p "$PROMPT"`, not stdin), with
+  `--model "Gemini 3.1 Pro (High)"` and `--dangerously-skip-permissions` (the
+  latter is required — without it `agy`'s agent loop blocks on a tool-permission
+  prompt and hangs for any non-trivial generation). The legacy standalone
+  `gemini` CLI was dropped after Google revoked its free Code Assist tier.
 - Claude CLI capture should write the final review to `/tmp/${ID}-claude.txt`.
