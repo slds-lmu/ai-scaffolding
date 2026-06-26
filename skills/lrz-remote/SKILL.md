@@ -229,7 +229,9 @@ LRZ explicitly warns against high-frequency polling of Slurm. Do not automate
 `squeue`/`sacct` checks every few seconds. Prefer intervals on the order of
 minutes; their example safe `watch` interval is `600` seconds.
 
-**Important**: if the job is no longer in `squeue`, it has already completed (or failed) — this is normal for short jobs. Do not interpret absence from the queue as an error. Immediately check the logs:
+**Always pass `--clusters=<cluster>` to `squeue`/`sacct`.** A bare `squeue --me` (or `squeue` without `--clusters`) only reports the *default* cluster context and returns an **empty list for jobs on `serial`/`cm4`** — which looks exactly like "no jobs" even while they are running. Before concluding a job is gone, query its actual cluster: `squeue --me --clusters=serial` (or `cm4`), or check every cluster. This bites hardest with long array jobs: an empty `squeue --me` made running `serial_long` arrays look stopped.
+
+**Important**: if the job is genuinely no longer in `squeue` (verified on the *right* cluster), it has already completed (or failed) — this is normal for short jobs. Do not interpret absence from the queue as an error. Immediately check the logs:
 
 ```bash
 # stdout — R output and progress messages
@@ -396,6 +398,7 @@ ssh lrz "quota -s"
 | `scp` fails | Outgoing SSH blocked from LRZ | Always `scp` FROM your laptop, never from LRZ |
 | `unable to load shared object ... libblas.so.3` | Package .so linked against system BLAS (absent on compute nodes; they use MKL) | Reinstall the package from source after `module load r/...` so it compiles against MKL |
 | `rlang::is_installed()` returns FALSE despite package being in `.libPaths()` | Transitive dependency has broken .so (see libblas row above) | Fix the broken dep, then `devtools::load_all()` will pass |
+| `No space left on device` on a package install, or `Fatal error: cannot create 'R_TempDir'` from plain `Rscript`, **even though `df` shows the filesystem has free space** | Per-user **scratch quota** (inode/byte limit) is full — R writes its tempdir there by default, and old sessions leave `Rtmp*` dirs + `cc*.s` compiler temp behind. The free space `df` reports is the *shared* filesystem, not your quota. | Point R's tempdir at HOME for the command: `export TMPDIR=$HOME/tmp` (mkdir it first). To actually free the quota, clean stale scratch temp: `find "$SCRATCH" -maxdepth 1 \( -name 'Rtmp*' -o -name 'cc*.s' -o -name 'tmp.*' \) -mmin +60 -exec rm -rf {} +` (the `-mmin +60` protects anything an active job is using). Batch jobs are unaffected (compute nodes use node-local tmp); this hits login-node `Rscript` and `install_github`/`pak`. |
 
 ## Safety Rules
 
