@@ -24,27 +24,26 @@ If this hangs or errors, tell the user:
 
 ## User Configuration
 
-The user MUST provide the following before you can do real work. If any are missing, ask for them.
+Confirmed values — do not re-ask for these:
 
-| Setting | Example | How to discover |
-|---|---|---|
-| LRZ username | `rs86ghi2` | Given |
-| SSH alias | `lrz` | Check `~/.ssh/config` |
-| Home directory | `/dss/dsshome1/lxc04/rs86ghi2` | `ssh lrz "echo \$HOME"` |
-| Work/scratch directory | `/dss/dssfs04/...` or similar | `ssh lrz "echo \$SCRATCH_DSS \$WORK"` |
-| Project account (if needed) | `pn12ab` | `ssh lrz "sacctmgr show assoc user=\$USER format=Account -n"` |
-| R module | `r/4.3.3-gcc13-mkl` | `ssh lrz "module av r 2>&1"` |
-| Active user R lib | `~/R/x86_64-pc-linux-gnu-library/4.3/` | first entry in `.libPaths()` (`.Rprofile` is version-dynamic) |
-| Email for SLURM notifications | `bla.blub@stat.uni-muenchen.de` | Ask user |
+| Setting | Value |
+|---|---|
+| LRZ username | `ri68suz2` |
+| SSH alias | `lrz` |
+| Home directory | `/dss/dsshome1/lxc04/ri68suz2` |
+| Email for SLURM | `fabian.scheipl@stat.uni-muenchen.de` |
+| R module | `r/4.3.3-gcc13-mkl` |
+| Active user R lib | `~/R/x86_64-pc-linux-gnu-library/4.3/` (first in `.libPaths()` — `.Rprofile` is version-dynamic) |
 
-Store these in a local project file (e.g., `.lrz_config`) so you don't have to re-ask.
+To discover scratch/work dirs if needed: `ssh lrz "echo \$SCRATCH_DSS \$WORK"`
+To discover project account if needed: `ssh lrz "sacctmgr show assoc user=\$USER format=Account -n"`
 
 ## Local ↔ Remote Directory Convention
 
 Local project directories and their LRZ counterparts **share the same folder name** and are typically clones of the same git repository. Example:
 
-- Local: `~/myproject/`
-- Remote: `~/myproject/` (same name, under the LRZ home)
+- Local: `/home/fabians/myproject/`
+- Remote: `/dss/dsshome1/lxc04/ri68suz2/myproject/`
 
 **Prefer `git pull` over `scp` to sync script changes** when both sides are git clones — it's cleaner and keeps history intact. Use `scp` only for data files or when the LRZ copy isn't a git repo.
 

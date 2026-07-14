@@ -49,7 +49,9 @@ Typical Codex sequence:
 
 3. Pass file access explicitly.
    Use `--target` for every file or directory Claude needs to read. The launcher adds the parent directories via `--add-dir=...`.
-   Add extra roots with `--add-dir` when the prompt references other paths.
+   It also appends target paths to the staged prompt, so a short request such as
+   “summarize this file” works. Add extra roots with `--add-dir` when the prompt
+   references other paths.
 
 4. Default to read-only review tools.
    The launcher defaults to `Read,Grep,Glob` plus `--permission-mode bypassPermissions`.

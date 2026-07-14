@@ -50,8 +50,9 @@ For small reviews:
 For large reviews:
 
 - Put the instructions in a context file.
-- List absolute paths instead of inlining giant files.
-- Add each reviewed file or root directory via `--target` or `--add-dir`.
+- Use `--target` for each reviewed file or root directory; the launcher appends those
+  paths to the staged prompt. List additional absolute paths in the context file.
+- Add extra access roots via `--add-dir` when needed.
 - Use `opus` for deeper reasoning when latency is acceptable.
 
 ## Concurrency

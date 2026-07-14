@@ -61,6 +61,17 @@ stage_prompt() {
   die "Provide either --prompt-file or --prompt-text"
 }
 
+append_target_context() {
+  [ ${#TARGETS[@]} -gt 0 ] || return
+
+  {
+    printf '\n\nFiles or directories available for inspection:\n'
+    for target in "${TARGETS[@]}"; do
+      printf -- '- %s\n' "${target}"
+    done
+  } >> "${PROMPT_PATH}"
+}
+
 calc_timeout() {
   local prompt_path="$1"
   local prompt_bytes prompt_kb
@@ -328,6 +339,8 @@ for target in "${TARGETS[@]}"; do
     ADD_DIRS+=("$(dirname "${target}")")
   fi
 done
+
+append_target_context
 
 if [ ${#ADD_DIRS[@]} -gt 0 ]; then
   mapfile -t ADD_DIRS < <(printf '%s\n' "${ADD_DIRS[@]}" | awk 'NF && !seen[$0]++')

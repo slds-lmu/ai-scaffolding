@@ -54,6 +54,12 @@ The prompt contract stays the same even though the Claude launch mechanism chang
 ## Notes
 
 - Codex capture uses `codex exec -o` because stdout capture can be empty otherwise.
+- The Codex leg pins its model via `CODEX_MODEL` in `council-fanout.sh` (currently
+  `gpt-5.6-terra`; override per run with `COUNCIL_CODEX_MODEL=...`). Pinning keeps the
+  council from drifting when `~/.codex/config.toml`'s default changes. Its stderr is
+  captured to `/tmp/${ID}-codex.err`, and an unknown model name or an empty review is
+  written into the output file as `[CODEX FAILED: ...]` / `[CODEX PRODUCED NO OUTPUT]` —
+  never swallowed, since a silent empty file reads like "the bot found nothing".
 - Gemini runs via the Antigravity `agy` CLI in print mode: the prompt is passed
   as a positional argument (`agy -p "$PROMPT"`, not stdin), with
   `--model "Gemini 3.1 Pro (High)"` and `--dangerously-skip-permissions` (the

@@ -42,6 +42,11 @@ if [ "$PREFIX" = "$CONTEXT_FILE" ]; then
 fi
 
 # Parse flags
+# Model for the Codex leg. Override per-invocation with COUNCIL_CODEX_MODEL=...
+# The CLI's own default lives in ~/.codex/config.toml; we pin it here so the council
+# does not silently drift when that default changes.
+CODEX_MODEL="${COUNCIL_CODEX_MODEL:-gpt-5.6-terra}"
+
 RUN_CODEX=1
 RUN_GEMINI=1
 RUN_CLAUDE=1
@@ -127,16 +132,37 @@ BOTS=()
 # --- Codex ---
 if [ "$RUN_CODEX" -eq 1 ] && command -v codex &>/dev/null; then
   OUTFILE="${PREFIX}-codex.txt"
-  echo "Launching Codex..."
+  ERRFILE="${PREFIX}-codex.err"
+  echo "Launching Codex (model: ${CODEX_MODEL})..."
   (
-    if echo "$FULL_PROMPT" | timeout "$BOT_TIMEOUT" codex exec --full-auto \
-        --skip-git-repo-check -C /tmp -o "$OUTFILE" - 2>/dev/null; then
+    # stderr goes to ERRFILE, not /dev/null: an unknown --model name otherwise fails
+    # SILENTLY, leaving an empty review that reads like "the bot had no findings".
+    # `--sandbox workspace-write` replaces the deprecated `--full-auto` (codex-cli
+    # 0.144 warns on it). Same effect: no per-action approval prompt, writes confined
+    # to the workdir (-C /tmp), which is all a read-only reviewer needs.
+    if echo "$FULL_PROMPT" | timeout "$BOT_TIMEOUT" codex exec --sandbox workspace-write \
+        -m "$CODEX_MODEL" \
+        --skip-git-repo-check -C /tmp -o "$OUTFILE" - 2>"$ERRFILE"; then
       sanitize_output "$OUTFILE"
     else
       EXIT_CODE=$?
       if [ $EXIT_CODE -eq 124 ]; then
         echo "[TIMEOUT after ${BOT_TIMEOUT}s]" > "$OUTFILE"
+      else
+        {
+          echo "[CODEX FAILED: exit ${EXIT_CODE}, model=${CODEX_MODEL}]"
+          echo "--- stderr tail ---"
+          tail -n 20 "$ERRFILE" 2>/dev/null
+        } > "$OUTFILE"
       fi
+    fi
+    # Empty output with a zero exit is also a failure worth surfacing.
+    if [ ! -s "$OUTFILE" ]; then
+      {
+        echo "[CODEX PRODUCED NO OUTPUT, model=${CODEX_MODEL}]"
+        echo "--- stderr tail ---"
+        tail -n 20 "$ERRFILE" 2>/dev/null
+      } > "$OUTFILE"
     fi
   ) &
   PIDS+=($!)
