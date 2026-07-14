@@ -99,7 +99,15 @@ Check that:
 
 **Run in background Agent** -- do not wait; proceed to Step 3.
 
+`remote = TRUE` triggers the "CRAN incoming feasibility" check, which fetches
+`<repos CRAN url>/src/contrib/PACKAGES.in`. This machine's default `.Rprofile`
+points `repos["CRAN"]` at a Posit Package Manager binary mirror for speed,
+and PPM never hosts `PACKAGES.in` (any PPM URL form 404s on it) -- only real
+CRAN mirrors have it. Point at the real mirror for this specific check,
+in-line so it doesn't depend on `.Rprofile` still defining `use_real_cran()`:
+
 ```r
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 devtools::check(remote = TRUE, manual = TRUE)
 ```
 
@@ -282,6 +290,15 @@ revdepcheck::revdep_report()
 | `t-` | Newly times out |
 | `i+`/`t+` | Pre-existing issue (not your fault) |
 
+**A package shown as `E: ?/?` with EMPTY failure logs was never actually
+checked** — usually the `timeout =` budget (or a wall-clock kill) cut the run
+off before that package's turn; `revdep/failures.md` then contains blank
+"Error before installation" blocks. It does NOT mean the package breaks.
+Don't set tight `timeout =` values "to be safe" (default is 10 min *per
+check*, which is fine); re-run just the missing package with
+`revdep_add(pkg = "...")` + `revdep_check()` (resumes), or verify manually by
+`rcmdcheck::rcmdcheck()` on the CRAN tarball with the dev package installed.
+
 ### If Revdeps Break
 
 1. Determine if breakage is a false positive, pre-existing, or real
@@ -335,6 +352,8 @@ usethis::use_version("minor")  # or "major" / "patch"
 
 # Run --as-cran on the TARBALL with R-devel (CRAN policy: the actual tarball
 # must be checked with current R-devel before upload)
+# Same PPM/PACKAGES.in gotcha as Step 2 -- point at real CRAN for remote = TRUE:
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 devtools::check_built(manual = TRUE, remote = TRUE)
 
 # Submit

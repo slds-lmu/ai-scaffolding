@@ -10,6 +10,7 @@ for academic / statistics workflows.
 | `claude-cli` | Invoke Claude Code CLI from Codex for external reviews and second opinions |
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude)[^council-agy] |
 | `cran-submission` | CRAN submission workflow (extra checks, rhub, revdep, pkgdown, parallelized) |
+| `deslop` | Remove AI-writing tells while preserving technical meaning; audit scientific claim–evidence alignment and reporting quality |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
 | `make-quiz` | Create R/exams quiz questions for Moodle (stats/maths/ML lectures) |
@@ -49,4 +50,3 @@ library and seems worth browsing. Our `cran-submission` skill incorporates the
 checklist and adds rhub, revdep, pkgdown, and parallelized execution on top.
 
 [^thx]: TY [@jemus42](https://github.com/jemus42) for the pointer
-
