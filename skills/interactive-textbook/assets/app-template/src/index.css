@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@keyframes ttlock {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+}
+
+/* MathJax display equations shouldn't overflow narrow tooltips */
+mjx-container[display="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+/* Tailwind preflight sets svg { display: block } — MathJax SVG output must
+   flow inline (its vertical-align comes as an inline style from MathJax) */
+mjx-container > svg {
+  display: inline;
+}
