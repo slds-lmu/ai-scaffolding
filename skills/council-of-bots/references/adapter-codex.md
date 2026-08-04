@@ -32,6 +32,13 @@ From Codex, the reliable concurrent pattern is:
 
 Do not rely on detached `nohup ... &` wrappers for the Claude CLI leg.
 
+The Gemini leg uses Antigravity's `agy` CLI. Because `agy` starts a local
+language server and writes below `~/.gemini`, a restricted sandbox may block it.
+If the launcher reports a read-only-home or loopback-socket error, rerun the
+launcher outside the sandbox with approval. `UNSUPPORTED_CLIENT` from the
+standalone `gemini` binary is not an authentication problem; that client is no
+longer the council route.
+
 ## Collection
 
 Read:

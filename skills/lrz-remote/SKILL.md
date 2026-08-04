@@ -399,6 +399,43 @@ ssh lrz "quota -s"
 | `rlang::is_installed()` returns FALSE despite package being in `.libPaths()` | Transitive dependency has broken .so (see libblas row above) | Fix the broken dep, then `devtools::load_all()` will pass |
 | `No space left on device` on a package install, or `Fatal error: cannot create 'R_TempDir'` from plain `Rscript`, **even though `df` shows the filesystem has free space** | Per-user **scratch quota** (inode/byte limit) is full — R writes its tempdir there by default, and old sessions leave `Rtmp*` dirs + `cc*.s` compiler temp behind. The free space `df` reports is the *shared* filesystem, not your quota. | Point R's tempdir at HOME for the command: `export TMPDIR=$HOME/tmp` (mkdir it first). To actually free the quota, clean stale scratch temp: `find "$SCRATCH" -maxdepth 1 \( -name 'Rtmp*' -o -name 'cc*.s' -o -name 'tmp.*' \) -mmin +60 -exec rm -rf {} +` (the `-mmin +60` protects anything an active job is using). Batch jobs are unaffected (compute nodes use node-local tmp); this hits login-node `Rscript` and `install_github`/`pak`. |
 
+### Scheduling & liveness gotchas
+
+**Verify CPU/load before killing a "stalled" array cell.** When a cell's per-rep
+time is much larger than your polling interval and its N workers run in lockstep on
+near-identical work (e.g. `future`/`furrr` with `SLURM_CPUS_PER_TASK` workers), the
+per-rep output files land in *bursts of ~N at once*, not a steady trickle. So "0 new
+files for an hour" looks exactly like a hang but is usually a cell still grinding its
+first batch. Do NOT kill on file-count alone — attach to the node and check the
+workers are actually burning CPU first:
+
+```bash
+raw=$(sacct --clusters=cm4 -j <jobid>_<task> --format=JobIDRaw -n | grep -v '\.' | head -1 | tr -d ' ')
+srun --clusters=cm4 --jobid=$raw --overlap cat /proc/loadavg        # load ~ #workers = busy
+srun --clusters=cm4 --jobid=$raw --overlap ps -eo pcpu,nlwp,rss,comm --sort=-pcpu | head
+```
+
+Workers at ~99% CPU with load ≈ core count = computing (slow, not stuck); idle/blocked
+= a real hang worth investigating. (This attach trick also cheaply measures per-worker
+RSS — size `--mem` from that, not a guess: a Poisson `pffr` worker was ~0.5 GB, so
+memory was never the constraint even at 112 workers, contrary to my assumption.)
+Killing a healthy 112-worker cell mid-first-batch throws away hours of compute.
+
+**On a busy shared partition, prefer half-node core counts over whole-node.** A
+whole-node request (e.g. `--cpus-per-task=224` on a 224-core `cm4_tiny` node) needs an
+entirely *empty* node and sits on reason `Priority` (start estimate `N/A`) while the
+cluster is full; a half-node request (`112`) *backfills* onto the many partially-free
+nodes and starts almost immediately. Faster-to-start usually beats faster-per-cell on
+a loaded cluster — check `sinfo --clusters=cm4 -p <part> -N -o '%t %C'` (idle vs mix)
+to see. Also: **cm4 cores are slower per-thread than serial** (measured: same
+single-threaded R rep runs materially slower on cm4), so more cores help only via
+parallelism, not per-rep speed.
+
+**Don't churn-resubmit a fairshare-gated job to make it start sooner** — cancelling and
+resubmitting *resets its queue age/priority*, so it goes to the back. If your jobs sit
+on `Priority` despite idle nodes, your fairshare is just depleted (heavy recent use);
+let the queue work rather than resubmitting, which makes it worse.
+
 ## Safety Rules
 
 1. **NEVER run heavy computation on the login node.** File management, `pak::pkg_install()`, `.libPaths()` checks, and short `Rscript -e` calls are fine. Simulations, model fitting, and anything CPU/memory-intensive must go through SLURM.

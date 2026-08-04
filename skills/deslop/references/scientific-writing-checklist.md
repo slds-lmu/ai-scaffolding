@@ -16,6 +16,49 @@ reporting audit, not a substitute for checking the science, code, or data.
   PRISMA, or a field-specific equivalent). Do not treat this general checklist as a
   replacement for it.
 
+## Register and narration (research papers)
+
+Generalized from repeated author feedback on statistical manuscripts; these are
+pattern CLASSES — when one instance is flagged or found, sweep the whole
+document for the class before reporting done.
+
+- [ ] **Narrative first, complications later.** State the main line without
+  inline qualifications; move digressions and caveat pile-ups to a discussion
+  or appendix (keep every caveat *somewhere* — just not in the reader's first
+  pass). Immediate hedging reads defensive ("why we tried that, since we found
+  that").
+- [ ] **No process narration.** Report results and conclusions, not the
+  project's history ("a dedicated study closed the gap we had flagged…" →
+  state the finding). Corollary: present the LOGICAL order, not the
+  development order — deriving the general method first and the evaluated
+  variant as its licensed approximation is fine even when development ran the
+  other way.
+- [ ] **No confessional disclosure frames.** "One disclosure belongs up
+  front:" → keep the honesty content as one plain factual clause; drop the
+  mea-culpa framing and reader hand-holding.
+- [ ] **No internal codenames or infrastructure references.** Arm/gate/study
+  codenames (incl. letter-study labels and experiment codes), amendment or
+  cell numbers, archive file paths in captions/prose ("read live from
+  results/….csv"), and internal checks-and-balances vocabulary ("the rank
+  audit disqualifies", "sanctioned use", "claims gate") → name things by what
+  they are and state the scientific fact ("excluded for lack of covariate
+  rank"). Genuine user-facing API names stay. Table columns get descriptive
+  labels; codenames survive only in non-rendered source comments and a single
+  reproducibility appendix mapping.
+- [ ] **No drama.** No suspense or interest-manufacturing constructions:
+  "has a price, paid exactly where…", "carries the news", "the pattern is the
+  finding", "not the whole story", extended metaphors (bets/winnings/stakes,
+  dials), chiasmus, meta discourse markers ("Stated plainly:"). State the
+  fact; the section title names the TOPIC, the claim goes in the first
+  sentence (see structural-tells on headings).
+- [ ] **Precision on software-default claims.** Do not call a specific
+  estimator "the default" when the shipped default is a policy that resolves
+  to different estimators by regime; state the policy and its resolution rule.
+- [ ] **Re-verify promoted numbers.** Any number moved from a source comment,
+  note, or memory into reader-visible text must be recomputed against the data
+  at promotion time (a bound that was true of one subset is quietly false of
+  another).
+
 ## Scientific argument
 
 - [ ] State the research question, objective, or hypothesis precisely enough that the

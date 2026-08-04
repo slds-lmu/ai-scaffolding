@@ -37,6 +37,16 @@
   opener — a strong ChatGPT signature; drop bold lead-ins in prose.
 - Title-case headings → sentence case (JSS/JCGS and most journal house styles). Keep
   `{#anchors}` and cross-ref keys unchanged.
+- **Narrative/dramatized section titles (research-paper profile)** — headings that
+  tell the story or assert the claim instead of naming the topic: "Shipping it: the
+  cluster-robust default", "What robust covariance cannot do", "The bootstrap-t
+  confirms, rather than closes, the gap", "Demonstration: the X collapse",
+  colon-plus-drama constructions generally. Sober replacements name the subject:
+  "Software implementation", "Limitations", "Case study: <data>", "Undercoverage in
+  <setting>". The claim belongs in the section's first sentence, not its title.
+  (Registered from PI feedback 2026-07-21; applies to papers/theses, NOT to
+  teaching material or blog-register prose, where narrative headings can be
+  appropriate.)
 - Non-sequential heading levels, decorative horizontal rules before headings, emoji as
   bullet markers or section dividers, reflexive nested bullets → remove.
 - Curly ("smart") quotes where the surrounding document uses straight quotes, or vice

@@ -240,6 +240,18 @@ rhub::rhub_check()
 - `clang-asan` -- address sanitizer (for compiled code)
 - `valgrind` -- memory checker (for compiled code)
 
+If the remote `nosuggests` runner wedges (observed: stuck >15 min on
+"checking loading without being on the library search path"), emulate it
+locally instead -- same signal, minutes not hours:
+
+```bash
+_R_CHECK_DEPENDS_ONLY_=true _R_CHECK_FORCE_SUGGESTS_=false \
+_R_CHECK_CRAN_INCOMING_=FALSE R CMD check --as-cran pkg_x.y.z.tar.gz
+```
+
+(`_R_CHECK_CRAN_INCOMING_=FALSE` avoids the PPM `PACKAGES.in` 404 noted in
+Step 2.)
+
 ### Win-builder (alternative for Windows)
 
 ```r
@@ -248,6 +260,14 @@ devtools::check_win_release()  # R-release on Windows
 ```
 
 Results arrive by email. These are the same machines CRAN uses.
+
+If `check_win_*()` dies in FTP passive-data-channel timeouts (observed 3x in
+a row), upload the built tarball manually -- this reliably works:
+
+```bash
+curl -T pkg_x.y.z.tar.gz ftp://win-builder.r-project.org/R-devel/
+curl -T pkg_x.y.z.tar.gz ftp://win-builder.r-project.org/R-release/
+```
 
 ### R Consortium runners (no GitHub needed)
 
@@ -388,6 +408,19 @@ usethis::use_dev_version(push = TRUE)  # bump to x.y.z.9000
 Also:
 - Close the release milestone on GitHub
 - Publish blog post / changelog announcement if applicable
+
+### Coordinated releases (downstream package depends on the new version)
+
+While the upstream package is not on CRAN yet, the downstream DESCRIPTION
+bridges the gap with a `Remotes:` entry -- know the syntax trap:
+`Remotes: user/repo@pr-233` resolves a literal *branch or tag named
+`pr-233`*, NOT pull request 233 (`user/repo#233` is the PR syntax). A stale
+alias branch then fails pak dependency resolution in the downstream CI with
+`Can't install dependency user/repo@pr-233 (>= x.y.z)` -- fix by pushing the
+current tip to the alias (`git push origin <branch>:pr-233`) or pointing
+`Remotes:` at the real branch. Drop the `Remotes:` line entirely before the
+downstream package's own CRAN submission (CRAN rejects it), and only after
+the upstream version is actually live on the mirrors.
 
 ## Quick Reference
 

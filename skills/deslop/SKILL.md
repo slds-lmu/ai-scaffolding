@@ -50,7 +50,7 @@ The same phrase can be a tell in one register and normal in another. Pick (or as
 
 | Profile | What changes |
 |---|---|
-| **Research paper** (JSS/JCGS, thesis chapter) | Full firewall + style checklist + `references/scientific-writing-checklist.md`. Sentence-case headings. Never touch equations, notation, citations, cross-refs, code chunks. |
+| **Research paper** (JSS/JCGS, thesis chapter) | Full firewall + style checklist + `references/scientific-writing-checklist.md`. Sentence-case headings; sober TOPIC-naming titles, not narrative/claim-asserting ones (see structural-tells). Never touch equations, notation, citations, cross-refs, code chunks. |
 | **Peer review / Gutachten (referee report)** | Same firewall. Direct evaluative judgments ("this claim is unsupported", "the simulation is underpowered") are the genre, not overclaiming — don't soften them looking for "hedge-then-pivot". Vague-authority and citation rules still apply. |
 | **Teaching material** | Didactic tone, rhetorical questions, and simpler vocabulary are appropriate for students — don't flag as "folksiness". German is fine. Bullet lists for genuinely enumerable items are fine. |
 | **Email / informal note** | Relaxed. Skip formatting-tell scrubbing (bold, headings) unless egregious. Focus on P0 only (§Step 2) plus obvious chatbot scaffolding. |
@@ -100,13 +100,18 @@ citation, method, result, limitation, or rationale.
    note that…" framing — delete the frame, keep the fact (P1).
 5. Break mechanical triads, persistent parallelism, uniform paragraph shapes; apply the
    DO principles below (P1).
-6. Sentence-case headings; reduce em-dash/bold density without over-correcting;
+6. Sentence-case, topic-naming headings (no narrative/dramatized titles in the
+   research-paper profile); reduce em-dash/bold density without over-correcting;
    straighten curly quotes if the surrounding doc uses straight ones (P2).
 7. Optional: run `references/jargon-glossing.md` if the document uses codenames or
    non-standard abbreviations.
-8. For scientific prose, run the scientific-writing checklist and separate findings
-   into (a) edits supported by the existing text and (b) author queries requiring
-   evidence, decisions, or missing information.
+8. For scientific prose, run the scientific-writing checklist — including its
+   "Register and narration" section (process narration, confessional frames,
+   internal codenames, drama constructions) — and separate findings into (a)
+   edits supported by the existing text and (b) author queries requiring
+   evidence, decisions, or missing information. When the user flags one
+   instance of a register pattern, sweep the whole document for the pattern
+   class before reporting done.
 
 ## DO principles (so the edit improves prose, not just removes words)
 
