@@ -24,66 +24,12 @@ export function fromDom(r: DOMRect): Rect {
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
 }
 
-function sign(p1: Pt, p2: Pt, p3: Pt): number {
-  return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
-
-export function inTriangle(p: Pt, a: Pt, b: Pt, c: Pt): boolean {
-  const d1 = sign(p, a, b);
-  const d2 = sign(p, b, c);
-  const d3 = sign(p, c, a);
-  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-  const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-  return !(hasNeg && hasPos);
-}
-
-/**
- * "Safe corridor" (menu-aim) test: the triangle spanned by the point where
- * the cursor left the source link and the two corners of the tooltip edge
- * that faces it. Diagonal travel from link to tooltip stays inside this
- * triangle and must not dismiss the chain (spec 2.2.3).
+/*
+ * The "safe corridor" (menu-aim triangle) that used to live here is gone:
+ * window liveness is now decided by real mouseenter/mouseleave on the windows
+ * themselves plus a grace timer, which needs no geometry and cannot get stuck
+ * on a pointer that stops moving inside the corridor. See TooltipEngine.tsx.
  */
-export function inCorridor(p: Pt, origin: Pt, tooltip: Rect): boolean {
-  // degenerate: origin inside the tooltip — plain containment already covers it
-  if (contains(tooltip, origin)) return false;
-  const isLeft = origin.x < tooltip.left;
-  const isRight = origin.x > tooltip.right;
-  const isAbove = origin.y < tooltip.top;
-  const isBelow = origin.y > tooltip.bottom;
-  // the triangle must span the tooltip's SILHOUETTE as seen from the origin:
-  // for diagonal approach that is two extremal corners across the rect, not a
-  // single edge (a single edge leaves diagonal dead zones that dismiss the chain)
-  let a: Pt, b: Pt;
-  if (isLeft && isAbove) {
-    a = { x: tooltip.right, y: tooltip.top };
-    b = { x: tooltip.left, y: tooltip.bottom };
-  } else if (isRight && isAbove) {
-    a = { x: tooltip.left, y: tooltip.top };
-    b = { x: tooltip.right, y: tooltip.bottom };
-  } else if (isLeft && isBelow) {
-    a = { x: tooltip.left, y: tooltip.top };
-    b = { x: tooltip.right, y: tooltip.bottom };
-  } else if (isRight && isBelow) {
-    a = { x: tooltip.right, y: tooltip.top };
-    b = { x: tooltip.left, y: tooltip.bottom };
-  } else if (isLeft || isRight) {
-    const x = isLeft ? tooltip.left : tooltip.right;
-    a = { x, y: tooltip.top };
-    b = { x, y: tooltip.bottom };
-  } else {
-    const y = isAbove ? tooltip.top : tooltip.bottom;
-    a = { x: tooltip.left, y };
-    b = { x: tooltip.right, y };
-  }
-  // small slack behind the origin so a 2px overshoot near the link survives
-  const cx = (tooltip.left + tooltip.right) / 2;
-  const cy = (tooltip.top + tooltip.bottom) / 2;
-  const o: Pt = {
-    x: origin.x - Math.sign(cx - origin.x) * 6,
-    y: origin.y - Math.sign(cy - origin.y) * 6,
-  };
-  return inTriangle(p, o, a, b);
-}
 
 /**
  * Choose a position for a tooltip of size (w,h), anchored near the cursor but

@@ -1,18 +1,15 @@
 /**
- * Section registry — PRE-POPULATE this file with ALL sections (importing stub
- * components) BEFORE launching the section-writer agents, then never let an
- * agent edit it: each agent only overwrites its own stub file. This removes
- * every shared-file conflict between concurrent agents.
+ * Section registry. Every S*.mdx file exports `id` and `title`; the glob
+ * makes registration automatic, while mdxSection supplies page typography.
+ * Section writers therefore edit only their assigned MDX file and widgets.
  *
- * Example (adapt ids/titles to the chapter being converted):
+ * Equivalent one-file shape:
  *
- *   import { S41 } from "./S41";
- *   export const sections: SectionEntry[] = [
- *     { id: "4.1", title: "Determinant and Trace", C: S41 },
- *     ...
- *   ];
+ *   import Body from "./S41.mdx";
+ *   const S41 = mdxSection(Body);
  */
 import type { ComponentType } from "react";
+import { mdxSection } from "../mdx/adapters";
 
 export interface SectionEntry {
   id: string;
@@ -20,4 +17,22 @@ export interface SectionEntry {
   C: ComponentType;
 }
 
-export const sections: SectionEntry[] = [];
+type SectionModule = {
+  default: ComponentType;
+  id?: string;
+  title?: string;
+};
+
+const modules = import.meta.glob("./S*.mdx", { eager: true }) as Record<string, SectionModule>;
+
+export const sections: SectionEntry[] = Object.entries(modules)
+  .map(([file, mod]) => {
+    if (!mod.id?.trim() || !mod.title?.trim()) {
+      throw new Error(
+        `Section ${file} must export non-empty strings named id and title. ` +
+          `Copy the metadata shape from src/sections/_demo.mdx.`
+      );
+    }
+    return { id: mod.id, title: mod.title, C: mdxSection(mod.default) };
+  })
+  .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));

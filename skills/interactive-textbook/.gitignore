@@ -1,0 +1,8 @@
+# Verification attaches shared dependencies temporarily; never commit the link.
+assets/app-template/node_modules
+
+# The MDX typecheck writes these beside sources and removes them on completion.
+assets/app-template/src/**/.*.mdx-check.tsx
+
+# Template builds are generated output.
+assets/app-template/dist

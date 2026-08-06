@@ -3,6 +3,8 @@ import { sections } from "./sections";
 
 // side-effect imports: every concept module registers its tooltip
 import.meta.glob("./concepts/*.tsx", { eager: true });
+// MDX concept modules cannot register themselves — this does it for them
+import "./mdx/concepts-mdx";
 
 /**
  * TEMPLATE — replace the {{...}} placeholders when instantiating:
@@ -21,9 +23,11 @@ export default function App() {
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">{"{{ATTRIBUTION}}"}</p>
           <p className="mt-3 rounded bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-950/50 dark:text-sky-200">
             <strong>How to use:</strong> <span className="text-sky-600">dotted-underlined</span>{" "}
-            terms explain themselves when you hover (300 ms). After a moment the tooltip locks
-            (📌) — then terms <em>inside</em> the tooltip are hoverable too (nested
-            tooltips). <kbd>Esc</kbd> closes the whole chain. Yellow "Deep dive"
+            terms explain themselves when you hover. The window that opens is live, so you can
+            walk further along the links inside it. <em>Click</em> a term (or the 📌 in a
+            window) to pin it: a pinned window stays open, can be dragged by its title bar,
+            and is unaffected by scrolling. Close it with ×, with <kbd>Esc</kbd>, or by
+            clicking elsewhere. Yellow "Deep dive"
             boxes contain interactive widgets.
           </p>
         </header>

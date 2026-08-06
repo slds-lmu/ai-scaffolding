@@ -124,7 +124,22 @@ function useLazyTypeset(ref: RefObject<Element | null>, tex: string) {
       }
       return;
     }
-    if (lastTex.current === tex) return; // effect replay, nothing to do
+    if (lastTex.current === tex) {
+      // Effect replay with unchanged TeX — in practice only React StrictMode,
+      // which mounts, tears down, and mounts again. The unmount cleanup below
+      // already unobserved this element, so returning here would leave it
+      // registered nowhere and it would NEVER be typeset. That is exactly why
+      // `npm run dev` used to render raw TeX across the whole app while the
+      // production build was fine (StrictMode only double-invokes in dev).
+      // Re-registering is safe: once MathJax has replaced the children there is
+      // no delimiter left to find, so a repeat typeset is a no-op.
+      if (io) io.observe(el);
+      else {
+        queue.add(el);
+        schedule();
+      }
+      return;
+    }
     // live update: typeset the NEW formula in a hidden sibling while the old
     // rendering stays visible, then swap atomically — no raw-TeX flash, no
     // double layout jump. The sibling clones the element's shell so its
@@ -255,13 +270,33 @@ export function EnvBlock({
   label,
   children,
 }: {
-  kind: "Definition" | "Theorem" | "Example" | "Remark";
+  kind:
+    | "Definition"
+    | "Theorem"
+    | "Satz"
+    | "Lemma"
+    | "Korollar"
+    | "Corollary"
+    | "Example"
+    | "Beispiel"
+    | "Remark"
+    | "Bemerkung"
+    | "Algorithmus"
+    | "Algorithm";
   label: string;
   children: ReactNode;
 }) {
   const colors: Record<string, string> = {
     Definition: "border-sky-500 bg-sky-50 dark:bg-sky-950/40",
     Theorem: "border-violet-500 bg-violet-50 dark:bg-violet-950/40",
+    Satz: "border-violet-500 bg-violet-50 dark:bg-violet-950/40",
+    Lemma: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
+    Korollar: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
+    Corollary: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
+    Beispiel: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
+    Bemerkung: "border-slate-400 bg-slate-50 dark:bg-slate-800/40",
+    Algorithmus: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
+    Algorithm: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
     Example: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
     Remark: "border-slate-400 bg-slate-50 dark:bg-slate-800/40",
   };

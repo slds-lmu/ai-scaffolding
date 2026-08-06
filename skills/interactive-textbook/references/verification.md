@@ -1,8 +1,8 @@
 # Verification (run after the workflow completes)
 
-Two layers: the workflow's integration agent already guarantees `tsc` +
-`vite build` pass and concept closure. This file covers what that agent
-cannot do: seeing the app.
+Two layers: the workflow's integration agent already guarantees TypeScript,
+the MDX typecheck, `vite build`, and concept closure. This file covers what
+that agent cannot do: seeing the app.
 
 ## 1. Serve the built app
 
@@ -32,15 +32,25 @@ python3 -m venv <scratch>/venv
 Script skeleton (headless chromium, viewport ~1400×900). Wait
 `networkidle` + ~4 s for MathJax before asserting. Check, in order:
 
-1. **MathJax health**: `mjx-container` count > 0 AND `mjx-merror` count == 0
-   (print the merror texts if any — they pinpoint the broken TeX string).
-2. **Structure**: counts of `span.cursor-help` (concept links),
+1. **MathJax health**: `mjx-container` count > 0 AND zero errors. CAUTION:
+   with SVG output, errors are NOT `mjx-merror` elements — count BOTH
+   selectors: `mjx-merror, [data-mml-node="merror"]`, and print
+   `data-mjx-error` attributes (they pinpoint the broken TeX string).
+   Checking only `mjx-merror` silently passes broken math.
+2. **Structure**: counts of `[data-concept-link]` (concept links),
    `text=Deep dive:` (accordions), `section[id^=sec-]`.
-3. **Tooltip chain**: hover a body concept link → expect 1 `div[role=tooltip]`
-   after ~600 ms; wait ~1.2 s (lock); hover a `span.cursor-help` INSIDE the
-   tooltip → expect 2; repeat for a 3rd level. Screenshot each stage.
-4. **Teardown**: press Escape → expect 0 tooltips. Re-hover → 1; then
-   `page.mouse.wheel(0, 300)` → expect 0 (scroll dismissal).
+3. **Window chain**: hover a body concept link → expect 1 `[data-tt-key]`
+   after ~400 ms; move the pointer INTO it and wait ~700 ms → still 1 (it
+   must survive the pointer entering it); hover a `[data-concept-link]`
+   inside it → 2; repeat for a 3rd level. Screenshot each stage.
+4. **Pin, drag, teardown**: click a concept link → expect
+   `[data-tt-pinned="true"]`; `page.mouse.wheel(0, 700)` → the pinned window
+   is still there (only previews die on scroll); drag its title bar by
+   (160, 90) and check the bounding box moved by that much; click far away →
+   pinned survives; Escape → 0 windows. Also check the two regressions this
+   engine was built to kill: an 80 ms hover followed by moving away leaves 0
+   windows after 900 ms, and a pointer that comes to rest in the gap between
+   link and window (then does not move at all) leaves 0 windows after 1.5 s.
 5. **Deep dive**: click the first accordion button, screenshot the opened
    widget.
 6. **Console**: collect `console.error` messages; expect none.
@@ -56,31 +66,75 @@ line (no half-applied coloring in derivations).
 
 ## 3. Known cosmetic traps to grep for
 
-- `grep -rn 'title="Deep dive' src/sections src/concepts` → agents sometimes
-  include the prefix the component already adds; strip it.
-- `grep -rhoE 'ConceptLink id="[^"]+"' src | sort -u` vs files in
-  `src/concepts/` → should already be closed by the integration agent, but
-  it is a 2-second re-check.
+- `rg -n ':::(deepdive|vertiefung)\[Deep dive:?|<ExpandedReading[^>]*title="Deep dive' src/sections src/concepts`
+  finds titles that repeat the prefix the component already adds; strip the
+  prefix from the directive label. The JSX branch covers legacy modules.
+- Extract concept ids from both MDX directives and legacy JSX with
+  `rg -o --no-filename ':[kc]\[[^]]*\]\{#[A-Za-z0-9._-]+\}|<ConceptLink[[:space:]][^>]*id="[^"]+"' src`.
+  Normalize the text after `#` or inside `id="…"`, sort uniquely, and compare
+  it with both `src/concepts/<id>.mdx` and `<id>.tsx`. This should already be
+  closed by integration, but it is a quick independent check.
 
 ## 4. Verbatim sweep (copyright — mandatory, exhaustive)
 
 Do NOT sample sentences — run an exhaustive sliding-window scan; it costs
 the same and has twice caught leaks the per-section reviewers missed:
 
-1. Extract all JSX prose from `src/sections/**` AND `src/concepts/**`
+1. Extract all authored prose from `src/sections/**` AND `src/concepts/**`
    (tooltip prose is where leaks hide — no reviewer covers it).
 2. Normalize both sides (lowercase, collapse non-alphanumerics to spaces).
 3. Slide an 8-word window (step 2–4 words) over the app prose; flag every
    window that occurs verbatim in the `pdftotext` extraction of the source
    pages.
-4. Expect ZERO hits; rewrite any hit in fresh words, re-run tsc + the scan.
+4. Expect ZERO hits; rewrite any hit in fresh words, then re-run the MDX
+   typecheck, the build, and the scan.
 
 Frame sentences (equation lead-ins, list intros, figure captions) are the
 usual culprits.
 
+## 4b. MDX gate (only when converting an existing TSX section)
+
+`node mdx/compare.mjs old.tsx new.mdx` compares an ordered semantic
+inventory of both files — every TeX string, environment kind and label,
+concept id, heading, equation tag, quiz truth value, widget prop, plus
+prose — and fails on any difference in content, order or nesting.
+
+Do not reach for a rendered-text diff instead. `innerText` is
+layout-dependent and the sections carry `content-visibility: auto`, so
+skipped subtrees contribute nothing to it: such a check silently compares
+only what happens to be on screen. Use `textContent` if you write your own.
+
+Expect the gate to report the deliberate changes and require a human to sign
+each off. It is not meant to reach zero automatically. The recurring ones:
+
+- **Extracted widgets.** Preformatted text with inline formatting, SVG and
+  anything stateful must move into a companion `.tsx`; the gate sees text
+  becoming a widget entry. Check the widget renders the same thing.
+- **Unnumbered headings lose their id.** Ids now come from the section number
+  only, so a hand-written `id="sec-2.5-quiz"` disappears. Before signing off,
+  grep the whole app for inbound links to that id — if any exist, keep the
+  anchor by numbering the heading or adding an explicit anchor element.
+- **Quiz widget → directives.** The old hoisted `QUIZ` array plus
+  `<QuizWidget/>` becomes `::::quiz`; the gate normalises the questions but
+  reports the widget entry as gone.
+
+Known blind spots, so you do not over-trust it: it inventories the component's
+main returned tree, so a second `return` behind an early `if` is not compared;
+and it models the components it knows plus links, images and prose — it does
+not compare arbitrary HTML attributes or inline emphasis structure. It is a
+loss detector, not a proof of equivalence.
+
 ## 5. Report to the user
 
 Include: sections built, tooltip/widget counts, chain-depth demo screenshot,
-build size, open cosmetic issues, and the standing reminder that the app must
-stay private (paraphrase adaptation of copyrighted material, internal
-teaching use only).
+build size, open cosmetic issues, and the distribution status that follows
+from the licence branch in CONVENTIONS.md: under Branch A the standing
+reminder that the app must stay private (paraphrase adaptation of
+copyrighted material, internal teaching use only); under Branch B a check
+that the footer really carries the attribution, the source and licence links,
+the "adapted" note, and the output licence.
+
+The verbatim scan (§4) also changes with the branch: under Branch B verbatim
+overlap is permitted, so report hits as *style* findings (text that was
+copied rather than restructured for this format) instead of as violations,
+and check that anything deliberately quoted is marked as a quote.

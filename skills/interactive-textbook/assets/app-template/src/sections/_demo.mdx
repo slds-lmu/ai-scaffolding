@@ -1,0 +1,72 @@
+import { DemoScalingWidget } from "./widgets/_demo-widget";
+
+export const id = "4.6";
+export const title = "A complete MDX section";
+
+{/* App renders the section's own h2 from `id` + `title` above, so the body
+    starts at a SUBSECTION: repeating "### 4.6 …" here would print the heading
+    twice and emit a second id="sec-4.6" on the page. */}
+
+### 4.6.1 What this file demonstrates
+
+This worked example shows the authoring forms in one compilable file. Inline
+math uses ordinary TeX braces, as in $\frac{a}{b}$, and a prose comparison
+needs spaces, as in $n<10$ or the text n < 10.
+
+The same relationship can be displayed on its own:
+
+$$
+\mathbf{A}\mathbf{x} = \lambda\mathbf{x}
+$$
+
+An equation number belongs after the opening display fence.
+
+$$ {#eq-4.12}
+\mathbf{A}^\top\mathbf{A} = \mathbf{V}\mathbf{D}^2\mathbf{V}^\top
+$$
+
+:::definition[4.6 (Scaling map)]
+A scaling map sends every :c[vector]{#_demo-concept} $\mathbf{x}$ to
+$a\mathbf{x}$ for a fixed scalar $a$.
+:::
+
+:::deepdive[Change the horizontal scale]
+
+The imported companion owns the React state and canvas expressions. The MDX
+file only places the widget in the document.
+
+<DemoScalingWidget />
+
+:::
+
+::::proof
+
+:::step
+Apply the map twice to obtain $a(a\mathbf{x})$.
+
+::why[The first application replaces $\mathbf{x}$ by $a\mathbf{x}$.]
+:::
+
+:::step
+Associativity gives $a^2\mathbf{x}$.
+:::
+
+::::
+
+::::quiz
+
+:::question{true}
+Scaling by $a=1$ leaves every vector unchanged.
+
+The resulting map is the identity because $1\mathbf{x}=\mathbf{x}$.
+:::
+
+:::question{false}
+Scaling by $a=0$ is invertible.
+
+Every input maps to the zero vector, so distinct inputs cannot be recovered.
+:::
+
+::::
+
+::source[Template demonstration; replace this line with the adapted source.]

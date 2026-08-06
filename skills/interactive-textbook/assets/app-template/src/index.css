@@ -1,14 +1,5 @@
 @import "tailwindcss";
 
-@keyframes ttlock {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 100%;
-  }
-}
-
 html {
   scroll-behavior: smooth;
 }
@@ -29,3 +20,39 @@ mjx-container[display="true"] {
 mjx-container > svg {
   display: inline;
 }
+
+/*
+ * Tooltip windows are always dark, independently of the page theme.
+ * Tailwind's dark: variant follows prefers-color-scheme here and cannot
+ * express that local context, so ConceptBody gets this narrowly scoped
+ * colour layer instead. Without it, a LIGHT page theme renders the
+ * library's light EnvBlock/Proof/Quiz backgrounds inside the dark window:
+ * near-white text on near-white background.
+ */
+.concept-body .border-sky-500 { background-color: rgb(8 47 73 / 0.4) !important; }
+.concept-body :is(.border-violet-500, .border-violet-400) { background-color: rgb(46 16 101 / 0.4) !important; }
+.concept-body .border-emerald-500 { background-color: rgb(2 44 34 / 0.4) !important; }
+.concept-body .border-amber-500 { background-color: rgb(69 26 3 / 0.3) !important; }
+.concept-body .border-slate-400 { background-color: rgb(30 41 59 / 0.4) !important; }
+.concept-body .border-l-4.border-slate-300 {
+  border-color: #475569 !important;
+  background-color: rgb(30 41 59 / 0.3) !important;
+}
+.concept-body .border-amber-300 {
+  border-color: #b45309 !important;
+  background-color: rgb(69 26 3 / 0.3) !important;
+}
+.concept-body .border-amber-200 { border-color: #92400e !important; }
+.concept-body .text-amber-900 { color: #fde68a !important; }
+.concept-body .text-amber-600 { color: #fbbf24 !important; }
+.concept-body .border-slate-200 { border-color: #334155 !important; }
+.concept-body .bg-slate-200 {
+  color: #e2e8f0 !important;
+  background-color: #334155 !important;
+}
+.concept-body .bg-slate-200:hover { background-color: #475569 !important; }
+.concept-body :is(.text-slate-500, .text-slate-600) { color: #cbd5e1 !important; }
+.concept-body .text-emerald-700 { color: #34d399 !important; }
+.concept-body .text-red-700 { color: #f87171 !important; }
+.concept-body [data-concept-link] { color: #7dd3fc !important; }
+.concept-body [data-concept-link]:hover { background-color: rgb(12 74 110 / 0.4) !important; }
