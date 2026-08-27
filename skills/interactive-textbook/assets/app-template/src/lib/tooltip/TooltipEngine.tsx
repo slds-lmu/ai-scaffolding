@@ -507,7 +507,7 @@ function ConceptWindow({ entry, depth }: { entry: Entry; depth: number }) {
       className={[
         // constant border WIDTH: switching widths would shift the rendered
         // bounds away from the cached hit-test rect
-        "fixed max-w-md rounded-lg border-2 bg-slate-800 text-slate-100 shadow-xl text-sm leading-relaxed",
+        "w-dark fixed min-w-0 max-w-[min(28rem,calc(100vw-20px))] rounded-lg border-2 bg-slate-800 text-slate-100 shadow-xl text-sm leading-relaxed",
         entry.pinned ? "border-amber-400 shadow-2xl" : "border-slate-500",
       ].join(" ")}
       style={{
@@ -573,7 +573,7 @@ function ConceptWindow({ entry, depth }: { entry: Entry; depth: number }) {
           ref={bodyRef}
           tabIndex={-1}
           data-tt-body
-          className="max-h-[60vh] overflow-y-auto overscroll-contain px-3 py-2 outline-none [&_p]:my-1.5"
+          className="max-h-[60vh] min-w-0 overflow-x-auto overflow-y-auto overscroll-contain px-3 py-2 outline-none [&_mjx-container[display='true']]:min-w-0 [&_p]:my-1.5"
         >
           {def.body}
         </div>

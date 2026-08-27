@@ -1,9 +1,14 @@
 import { DemoScalingWidget } from "./widgets/_demo-widget";
+import { GuessFirst, fmtEn } from "../lib";
 
 export const id = "4.6";
 export const title = "A complete MDX section";
+export const key = "scaling-maps";
 
-{/* App renders the section's own h2 from `id` + `title` above, so the body
+{/* `id` is the SOURCE's section number and also the anchor #sec-4.6.
+    `key` is optional: it adds the second anchor #sec-scaling-maps so that
+    @sec:scaling-maps keeps working even if the numbering ever changes.
+    App renders the section's own h2 from `id` + `title` above, so the body
     starts at a SUBSECTION: repeating "### 4.6 …" here would print the heading
     twice and emit a second id="sec-4.6" on the page. */}
 
@@ -19,23 +24,60 @@ $$
 \mathbf{A}\mathbf{x} = \lambda\mathbf{x}
 $$
 
-An equation number belongs after the opening display fence.
+An equation number belongs after the opening display fence. Write the number
+the SOURCE prints; it becomes the equation's id and nothing re-derives it.
 
 $$ {#eq-4.12}
 \mathbf{A}^\top\mathbf{A} = \mathbf{V}\mathbf{D}^2\mathbf{V}^\top
 $$
+
+An equation the source leaves unnumbered gets a slug instead, and the counter
+supplies a number in document order:
+
+$$ {#eq-two-step}
+a(a\mathbf{x}) = a^2\mathbf{x}
+$$
+
+Prose never spells a number out. Reference the label and the text is filled
+in from the number table: @eq:4.12 is the eigendecomposition above, @eq:two-step
+composes the map with itself, and @definition:4.6 says what the map is.
 
 :::definition[4.6 (Scaling map)]
 A scaling map sends every :c[vector]{#_demo-concept} $\mathbf{x}$ to
 $a\mathbf{x}$ for a fixed scalar $a$.
 :::
 
-:::deepdive[Change the horizontal scale]
+:::example[#scaling-twice]
+Applying the map of @definition:4.6 twice scales by $a^2$, which is @eq:two-step.
+:::
 
-The imported companion owns the React state and canvas expressions. The MDX
-file only places the widget in the document.
+### Why the counter matters :id[why-counted]
+
+A heading can be numbered the same two ways. `### 4.6.1 …` above keeps the
+source's number; `:id[why-counted]` here asks the counter for one, so this
+heading is @sec:why-counted and stays correct when something is inserted
+before it.
+
+:::interactive[Change the horizontal scale]
+
+The imported companion owns the React state and SVG expressions. The MDX
+file only places the widget in the document. For $s = 1.5$ and
+$\mathbf{x} = (1, 1)^\top$ the image has length $\sqrt{3.25} \approx 1.803$,
+below the bound $\sigma_{\max}\,\|\mathbf{x}\| \approx 2.121$
+(checked by `scripts/verify/demo-scaling.mjs`).
 
 <DemoScalingWidget />
+
+:::
+
+:::deepdive[Guess before you look]
+
+A `GuessFirst` (German name: `Schaetzfrage`) asks for a number before the
+answer is shown; `verdeckt` holds whatever is revealed afterwards.
+
+<GuessFirst frage="How long is Ax for s = 1.5 and x = (1, 1)?" loesung={1.803} toleranz={0.1} fmt={fmtEn} verdeckt={<p>‖Ax‖ = √(1.5² + 1²) = √3.25 ≈ 1.803.</p>}>
+  <p>Hint: the first coordinate is stretched by 1.5, the second is unchanged.</p>
+</GuessFirst>
 
 :::
 
@@ -48,7 +90,7 @@ Apply the map twice to obtain $a(a\mathbf{x})$.
 :::
 
 :::step
-Associativity gives $a^2\mathbf{x}$.
+Associativity gives $a^2\mathbf{x}$, as in @eq:two-step.
 :::
 
 ::::

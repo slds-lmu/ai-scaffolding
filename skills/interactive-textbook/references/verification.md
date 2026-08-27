@@ -37,8 +37,32 @@ Script skeleton (headless chromium, viewport ~1400×900). Wait
    selectors: `mjx-merror, [data-mml-node="merror"]`, and print
    `data-mjx-error` attributes (they pinpoint the broken TeX string).
    Checking only `mjx-merror` silently passes broken math.
+   **Second trap: an undefined macro is not an error at all.** The
+   `noundefined` package of `input/tex-full` typesets `\cbblue` as red
+   literal text in an `mtext`, no merror anywhere. A widget coloured its
+   only content with a macro that did not exist and passed every gate for
+   months. Scan for it: collect every `\name` used in `src/**` (exclude
+   `.mdx-check.tsx` temp files, where `\n` escapes look like macros, and
+   skip delimiter macros such as `\left`/`\Big` which false-alarm with dummy
+   arguments), typeset each headlessly (mathjax `node-main.js`,
+   `input/tex-full` + the project's macro set) and fail if the macro name
+   comes back as literal text (with SVG output there are no text nodes:
+   decode the `data-c` glyph codes of the emitted `<mtext>`). The template
+   ships this as `scripts/verify/scan-macros.mjs` (part of
+   `npm run verify:numbers`, reads `texMacros` from `src/mathjax-setup.ts`);
+   if a project changed its macro setup, point the scanner at the new
+   export.
+   **Layout health at two widths** (~390 px and ~1300 px), in the same
+   script: fail if any `svg` has a rendered width < 40 px (viewBox-only
+   SVGs collapse inside flex columns), if any element is wider than the
+   viewport (tooltip panels with `max-w-md`, tables), if an open tooltip's
+   bounding box leaves the viewport, or if a deep-dive body is visible
+   before its button was clicked. Then eyeball the screenshots for clipped
+   tick labels and legends over data. Type checks and the MDX oracle cannot
+   see any of these.
 2. **Structure**: counts of `[data-concept-link]` (concept links),
-   `text=Deep dive:` (accordions), `section[id^=sec-]`.
+   `[data-deep-label]` (accordions; do not match on the label text, a
+   project may localize it), `section[id^=sec-]`.
 3. **Window chain**: hover a body concept link → expect 1 `[data-tt-key]`
    after ~400 ms; move the pointer INTO it and wait ~700 ms → still 1 (it
    must survive the pointer entering it); hover a `[data-concept-link]`
@@ -58,6 +82,10 @@ Script skeleton (headless chromium, viewport ~1400×900). Wait
 Read the screenshots with the Read tool and actually look at them: math
 typeset (no raw `\frac`), tooltips positioned near their links, widgets
 drawn (not blank canvases), no double "Deep dive: Deep dive:" labels.
+Looking is one half; the other half is a source audit of the same widgets
+(headers, verify scripts, verdict branches); the two passes catch disjoint
+defect classes, and the denominator ("all N widgets checked") is counted
+from `ls src/**/widgets`, not from what was on screen.
 Also inspect widget quality (real user complaints from the pilot):
 axes labeled and not cut off, vectors/curves fully inside the canvas,
 the visualized object's numeric state printed next to its sliders, and
@@ -74,6 +102,56 @@ line (no half-applied coloring in derivations).
   Normalize the text after `#` or inside `id="…"`, sort uniquely, and compare
   it with both `src/concepts/<id>.mdx` and `<id>.tsx`. This should already be
   closed by integration, but it is a quick independent check.
+
+## 3a. Structural greps (cheap, run every time; first pass, not proof)
+
+These greps are deliberately simple and miss escaped labels, links built in
+TSX expressions and unusual syntax. Treat an empty result as "nothing
+obvious", and use the MDX inventory (`mdx/inventory.mjs`) when a project
+needs an authoritative list.
+
+- **Orphan concepts**: every `src/concepts/<id>.mdx` must be linked from at
+  least one section or concept (`rg -l ':[kc]\[[^]]*\]\{#<id>\}'`). An
+  orphan is unreviewed by construction; delete or link it.
+- **Near-duplicate concept ids**: sort ids, eyeball adjacent pairs and
+  hyphen permutations (`matrix-inverse` / `inverse-matrix`); merge into the
+  id with more inbound links.
+- **Visible → collapsed dependencies**: for every `@`-reference and quiz
+  outside a `:::deepdive`/`:::vertiefung` block, check the target is not
+  inside one (a numbering table with block membership makes this a
+  one-liner; otherwise a small remark walk). Also grep widget TSX for
+  `ref("…")` keys whose targets sit in a deep dive.
+- **Verify-script provenance**: every widget header that cites a check
+  script must cite a path that exists under `scripts/verify/`; `npm run
+  verify:numbers` must be green.
+- **Style budget** (if CONVENTIONS sets one): dash count per file vs word
+  count, `&mdash;` entities included; a plain `grep '—'` misses them.
+
+## 3b. Numbering gate
+
+```bash
+npm run gen:numbers && npm run lint:numbers && node scripts/gen-numbers.mjs --check
+```
+
+All three must be clean: no hand-written number anywhere in `src/sections`
+or `src/concepts`, and the committed `numbers.generated.*` current. Then
+spot-check the rendered page: click one `@theorem:` and one `@eq:` link and
+confirm it jumps to the right block, and compare three numbers against the
+source PDF — an equation the source numbers must still print the source's
+number, not a counted one. If a printed number disagrees with the PDF, the
+label was mistyped, not the counter.
+
+When the authoring toolchain itself changed (a remark upgrade, a plugin
+edit), record an oracle first and compare afterwards:
+
+```bash
+git worktree add /tmp/ref <pre-change-commit>
+node scripts/verify/inventory-snapshot.mjs --write /tmp/ref.json --root /tmp/ref
+node scripts/verify/inventory-snapshot.mjs --compare /tmp/ref.json
+```
+
+Only whitelist an expected class of difference (`--allow link-wrap`,
+`--allow heading-id`, `--allow eq-math`), never an individual entry.
 
 ## 4. Verbatim sweep (copyright — mandatory, exhaustive)
 
@@ -110,8 +188,8 @@ each off. It is not meant to reach zero automatically. The recurring ones:
 - **Extracted widgets.** Preformatted text with inline formatting, SVG and
   anything stateful must move into a companion `.tsx`; the gate sees text
   becoming a widget entry. Check the widget renders the same thing.
-- **Unnumbered headings lose their id.** Ids now come from the section number
-  only, so a hand-written `id="sec-2.5-quiz"` disappears. Before signing off,
+- **Unnumbered headings lose their id.** Ids come from the heading's number
+  or from `:id[slug]`, so a hand-written `id="sec-2.5-quiz"` disappears. Before signing off,
   grep the whole app for inbound links to that id — if any exist, keep the
   anchor by numbering the heading or adding an explicit anchor element.
 - **Quiz widget → directives.** The old hoisted `QUIZ` array plus

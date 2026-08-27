@@ -1,0 +1,21 @@
+// node --experimental-strip-types src/lib/widgets/util.test.mjs
+import assert from "node:assert/strict";
+const u = await import("./util.ts");
+const { fmtDe, fmtInt, fmtTick, niceTicks, sigmaMax, maxAbsCoord, mulberry32, clamp, decimalsFromStep, labelPlacement } = u;
+assert.equal(fmtDe(-1.5), "−1,50"); assert.equal(fmtDe(NaN), "–"); assert.equal(fmtDe(-Infinity), "−∞"); assert.equal(fmtDe(-0.001), "0,00");
+assert.equal(fmtInt(-0.4), "0"); assert.equal(fmtInt(1234), "1.234");
+assert.deepEqual(niceTicks(10, 12).map((t) => fmtTick(t, 0.5)), ["10,0", "10,5", "11,0", "11,5", "12,0"]);
+assert.deepEqual([0.25, 0.5, 0.75].map((t) => fmtTick(t, 0.25)), ["0,25", "0,50", "0,75"]);
+const tk = niceTicks(0, 1e-4); assert.equal(new Set(tk.map((t) => fmtTick(t, tk[1] - tk[0]))).size, tk.length);
+assert.equal(fmtTick(0.0025), "0,0025"); assert.equal(fmtTick(0), "0");
+assert.ok(Math.abs(sigmaMax([[2, 1], [0, 1]]) - 2.288245611270737) < 1e-12);
+assert.equal(maxAbsCoord([1, -3], [2, 0]), 3);
+const r = mulberry32(7); const a = [r(), r(), r()]; const r2 = mulberry32(7); assert.deepEqual(a, [r2(), r2(), r2()]);
+assert.equal(clamp(5, 0, 1), 1);
+assert.equal(decimalsFromStep(0.25), 2);
+assert.equal(decimalsFromStep(1 / 30), 4);
+assert.equal(decimalsFromStep(1e-7), 4);
+assert.deepEqual(labelPlacement(90, 50), { x: 84, textAnchor: "end" });
+assert.deepEqual(labelPlacement(10, 50), { x: 16, textAnchor: "start" });
+assert.equal(u.fmtEn(-1.5), "−1.50"); assert.equal(u.fmtEn(NaN), "–"); assert.equal(u.fmtEn(Infinity), "∞"); assert.equal(u.makeFmt("de")(1.5, 1), "1,5");
+console.log("util tests ok");

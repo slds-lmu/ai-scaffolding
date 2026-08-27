@@ -11,6 +11,7 @@
  * slider-driven updates never flash raw TeX or jump the layout twice.
  */
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { colorBootstrap } from "../mathjax-setup";
 
 /**
  * Lazy, BATCHED typesetting. Typesetting every <M>/<MD> individually on
@@ -25,6 +26,7 @@ const queue = new Set<Element>();
 let flushScheduled = false;
 let mjBusy = false;
 let mjWaitTries = 0;
+let colorsReady = false;
 const BATCH = 48;
 
 function schedule() {
@@ -52,6 +54,17 @@ function flush() {
     return;
   }
   mjWaitTries = 0;
+  if (!colorsReady && colorBootstrap) {
+    // register project-wide named colors (\definecolor etc., see
+    // src/mathjax-setup.ts) document-wide before any real math; skipped when
+    // the project defines none
+    colorsReady = true;
+    const boot = document.createElement("span");
+    boot.style.display = "none";
+    boot.textContent = `\\(${colorBootstrap}\\)`;
+    document.body.appendChild(boot);
+    void chainTypeset(() => MJ.typesetPromise!([boot]).then(() => boot.remove()));
+  }
   const batch: Element[] = [];
   for (const el of queue) {
     // an element can be unmounted between enqueue and flush
@@ -177,8 +190,10 @@ function useLazyTypeset(ref: RefObject<Element | null>, tex: string) {
         // path (whose bounded retry loop covers late init) instead of
         // leaving it orphaned with raw TeX forever
         done();
-        queue.add(el);
-        schedule();
+        if (g === gen.current && el.isConnected) {
+          queue.add(el);
+          schedule();
+        }
         return;
       }
       return MJ.typesetPromise([tmp])
@@ -252,10 +267,11 @@ export function MD({ children }: { children: string }) {
   return <TypesetDiv tex={`\\[${children}\\]`} className="my-3 overflow-x-auto" />;
 }
 
-/** Numbered display equation with right-aligned tag, e.g. (4.12). */
-export function Eq({ tag, children }: { tag?: string; children: string }) {
+/** Numbered display equation with right-aligned tag, e.g. (4.12).
+ *  `id` (z. B. "eq-kkt") ist der Sprunganker für @eq:-Verweise. */
+export function Eq({ tag, id, children }: { tag?: string; id?: string; children: string }) {
   return (
-    <div className="relative my-3">
+    <div id={id} className="relative my-3 scroll-mt-20 lg:scroll-mt-8">
       <TypesetDiv tex={`\\[${children}\\]`} className="overflow-x-auto pr-14" />
       {tag && (
         <span className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500">({tag})</span>
@@ -268,6 +284,7 @@ export function Eq({ tag, children }: { tag?: string; children: string }) {
 export function EnvBlock({
   kind,
   label,
+  id,
   children,
 }: {
   kind:
@@ -284,26 +301,68 @@ export function EnvBlock({
     | "Algorithmus"
     | "Algorithm";
   label: string;
+  /** Sprunganker für @-Verweise, z. B. "env-kkt" (nur ID-Labels; Handnummern haben keinen). */
+  id?: string;
   children: ReactNode;
 }) {
-  const colors: Record<string, string> = {
-    Definition: "border-sky-500 bg-sky-50 dark:bg-sky-950/40",
-    Theorem: "border-violet-500 bg-violet-50 dark:bg-violet-950/40",
-    Satz: "border-violet-500 bg-violet-50 dark:bg-violet-950/40",
-    Lemma: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
-    Korollar: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
-    Corollary: "border-violet-400 bg-violet-50/70 dark:bg-violet-950/30",
-    Beispiel: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
-    Bemerkung: "border-slate-400 bg-slate-50 dark:bg-slate-800/40",
-    Algorithmus: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
-    Algorithm: "border-amber-500 bg-amber-50 dark:bg-amber-950/30",
-    Example: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
-    Remark: "border-slate-400 bg-slate-50 dark:bg-slate-800/40",
+  // Entwurf „Handbuch": Karte mit getöntem Grund, dünner Rahmen in der
+  // Umgebungsfarbe, Etikett als Pille. Jede Umgebung hat eine feste Farbe:
+  // blau Definition, violett Satz/Lemma, grün Beispiel, grau Bemerkung,
+  // bernstein Algorithmus.
+  const colors: Record<string, { box: string; pill: string }> = {
+    Definition: {
+      box: "border-sky-600/25 bg-sky-50/70 dark:border-sky-400/25 dark:bg-sky-950/30",
+      pill: "bg-sky-600/10 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200",
+    },
+    Theorem: {
+      box: "border-violet-600/25 bg-violet-50/70 dark:border-violet-400/25 dark:bg-violet-950/30",
+      pill: "bg-violet-600/10 text-violet-800 dark:bg-violet-400/15 dark:text-violet-200",
+    },
+    Beispiel: {
+      box: "border-emerald-600/25 bg-emerald-50/70 dark:border-emerald-400/25 dark:bg-emerald-950/30",
+      pill: "bg-emerald-600/10 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200",
+    },
+    Bemerkung: {
+      box: "border-slate-400/40 bg-slate-50 dark:border-slate-500/30 dark:bg-slate-800/40",
+      pill: "bg-slate-500/10 text-slate-700 dark:bg-slate-400/15 dark:text-slate-200",
+    },
+    Algorithmus: {
+      box: "border-amber-600/30 bg-amber-50/70 dark:border-amber-400/25 dark:bg-amber-950/25",
+      pill: "bg-amber-600/10 text-amber-800 dark:bg-amber-400/15 dark:text-amber-200",
+    },
   };
+  // Gleiche Farbe, anderer Name — Synonyme zeigen auf denselben Eintrag.
+  const alias: Record<string, string> = {
+    Satz: "Theorem",
+    Lemma: "Theorem",
+    Korollar: "Theorem",
+    Corollary: "Theorem",
+    Example: "Beispiel",
+    Remark: "Bemerkung",
+    Algorithm: "Algorithmus",
+  };
+  const c = colors[alias[kind] ?? kind] ?? colors.Bemerkung;
+
+  // "3.1.2 (Spur)" → Nummer ins Etikett, Beiname daneben in Normalschrift:
+  // ein durchgehend versalisiertes „(SPUR)" wäre zu laut.
+  const m = /^([\d.]+)\s*\((.+)\)\s*$/.exec(label.trim());
+  const nummer = m ? m[1] : label;
+  const beiname = m ? m[2] : null;
+
   return (
-    <div className={`my-4 rounded-r-md border-l-4 px-4 py-2 ${colors[kind]}`}>
-      <p className="mb-1 font-semibold">
-        {kind} {label}
+    <div
+      id={id}
+      data-env={alias[kind] ?? kind}
+      className={`my-5 rounded-lg border px-4 py-3 ${c.box} ${id ? "scroll-mt-20 lg:scroll-mt-8" : ""}`}
+    >
+      <p className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span
+          data-env-label
+          className={`rounded-full px-2.5 py-0.5 font-display text-[11.5px] font-semibold uppercase tracking-wider ${c.pill}`}
+        >
+          {kind} {nummer}
+        </span>
+        {beiname && <span className="font-semibold">{beiname}</span>}
       </p>
       <div className="[&>p]:my-1.5">{children}</div>
     </div>

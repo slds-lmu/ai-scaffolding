@@ -1,5 +1,12 @@
 export const title = "Vector";
 
+{/* Concepts are not sections, so they carry NO numbers of their own: a
+    `{#eq-…}` or `:::theorem[#…]` here has no section to be counted in and
+    fails the build. They may still *reference* something a section labelled
+    (`@eq:4.12`, `@theorem:4.6`) — but that couples the concept to one
+    chapter, and concept modules are meant to be copied forward to the next
+    one. Keep reusable concepts reference-free; cite books as plain prose. */}
+
 A **vector** records a magnitude and direction, or equivalently an ordered
 list of coordinates. For example, $\mathbf{x}=(1,2)^\top$ is a vector in
 $\mathbb{R}^2$.

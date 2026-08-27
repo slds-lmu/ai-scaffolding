@@ -11,6 +11,7 @@ for academic / statistics workflows.
 | `council-of-bots` | Multi-agent code review (fans out to Codex, Gemini, Claude)[^council-agy] |
 | `cran-submission` | CRAN submission workflow (extra checks, rhub, revdep, pkgdown, parallelized) |
 | `deslop` | Remove AI-writing tells while preserving technical meaning; audit scientific claim–evidence alignment and reporting quality |
+| `explorable-widgets` | Design, build, and review interactive teaching widgets (explorable explanations) for React/MDX lecture scripts — didactic patterns, implementation craft, and a review rubric |
 | `interactive-textbook` | Turn a chapter/lecture notes PDF into an interactive React web textbook (nested concept tooltips, deep-dive widgets, MathJax) via a multi-agent workflow |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |

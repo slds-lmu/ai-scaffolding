@@ -4,6 +4,11 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition-duration: 0.01ms !important; }
+}
+
 body {
   @apply bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
 }
@@ -29,11 +34,19 @@ mjx-container > svg {
  * library's light EnvBlock/Proof/Quiz backgrounds inside the dark window:
  * near-white text on near-white background.
  */
-.concept-body .border-sky-500 { background-color: rgb(8 47 73 / 0.4) !important; }
-.concept-body :is(.border-violet-500, .border-violet-400) { background-color: rgb(46 16 101 / 0.4) !important; }
-.concept-body .border-emerald-500 { background-color: rgb(2 44 34 / 0.4) !important; }
-.concept-body .border-amber-500 { background-color: rgb(69 26 3 / 0.3) !important; }
-.concept-body .border-slate-400 { background-color: rgb(30 41 59 / 0.4) !important; }
+.concept-body [data-env="Definition"] { background-color: rgb(8 47 73 / 0.45) !important; border-color: rgb(125 211 252 / 0.28) !important; }
+.concept-body [data-env="Theorem"] { background-color: rgb(46 16 101 / 0.45) !important; border-color: rgb(196 181 253 / 0.28) !important; }
+.concept-body [data-env="Beispiel"] { background-color: rgb(2 44 34 / 0.5) !important; border-color: rgb(110 231 183 / 0.28) !important; }
+.concept-body [data-env="Bemerkung"] { background-color: rgb(30 41 59 / 0.5) !important; border-color: rgb(148 163 184 / 0.3) !important; }
+.concept-body [data-env="Algorithmus"] { background-color: rgb(69 26 3 / 0.4) !important; border-color: rgb(252 211 77 / 0.28) !important; }
+.concept-body [data-env="Definition"] [data-env-label] { color: #7dd3fc !important; background-color: rgb(125 211 252 / 0.15) !important; }
+.concept-body [data-env="Theorem"] [data-env-label] { color: #c4b5fd !important; background-color: rgb(196 181 253 / 0.15) !important; }
+.concept-body [data-env="Beispiel"] [data-env-label] { color: #6ee7b7 !important; background-color: rgb(110 231 183 / 0.15) !important; }
+.concept-body [data-env="Bemerkung"] [data-env-label] { color: #cbd5e1 !important; background-color: rgb(148 163 184 / 0.18) !important; }
+.concept-body [data-env="Algorithmus"] [data-env-label] { color: #fcd34d !important; background-color: rgb(252 211 77 / 0.15) !important; }
+.concept-body [data-deep] { background-color: rgb(69 26 3 / 0.35) !important; border-color: rgb(252 211 77 / 0.25) !important; }
+.concept-body [data-deep] button { color: #fde68a !important; }
+.concept-body [data-deep-label] { color: #fcd34d !important; background-color: rgb(252 211 77 / 0.15) !important; }
 .concept-body .border-l-4.border-slate-300 {
   border-color: #475569 !important;
   background-color: rgb(30 41 59 / 0.3) !important;
@@ -56,3 +69,36 @@ mjx-container > svg {
 .concept-body .text-red-700 { color: #f87171 !important; }
 .concept-body [data-concept-link] { color: #7dd3fc !important; }
 .concept-body [data-concept-link]:hover { background-color: rgb(12 74 110 / 0.4) !important; }
+
+/* Widget surfaces (library SVGs read these variables; the dark tooltip panel
+   overrides them via .w-dark, so Plot/TransformCanvas/Surface3D need no props). */
+:root {
+  --w-bg: #ffffff;
+  --w-grid: #e2e8f0;
+  --w-grid-strong: #cbd5e1;
+  --w-axis: #64748b;
+  --w-text: #334155;
+  --w-muted: #94a3b8;
+  --w-border: #cbd5e1;
+}
+.w-dark, [data-widget-surface="dark"] {
+  --w-bg: #1e293b;
+  --w-grid: #334155;
+  --w-grid-strong: #475569;
+  --w-axis: #94a3b8;
+  --w-text: #e2e8f0;
+  --w-muted: #94a3b8;
+  --w-border: #475569;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --w-bg: #1e293b;
+    --w-grid: #334155;
+    --w-grid-strong: #475569;
+    --w-axis: #94a3b8;
+    --w-text: #e2e8f0;
+    --w-muted: #94a3b8;
+    --w-border: #475569;
+  }
+}

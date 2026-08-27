@@ -4,12 +4,18 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && node mdx/typecheck.mjs && vite build",
+    "dev": "npm run gen:numbers && vite",
+    "build": "npm run gen:numbers && npm run lint:numbers && tsc --noEmit && node mdx/typecheck.mjs && node mdx/fixtures.test.mjs && npm run test:lib && vite build",
     "preview": "vite preview",
     "test:mdx": "node mdx/fixtures.test.mjs",
     "mdx:compare": "node mdx/compare.mjs",
-    "typecheck:mdx": "node mdx/typecheck.mjs"
+    "typecheck:mdx": "node mdx/typecheck.mjs",
+    "gen:numbers": "node scripts/gen-numbers.mjs",
+    "lint:numbers": "node scripts/lint-numbers.mjs",
+    "verify:inventory": "node scripts/verify/inventory-snapshot.mjs",
+    "verify:numbers": "node scripts/verify/run-all.mjs",
+    "test:lib": "node --experimental-strip-types --no-warnings src/lib/widgets/util.test.mjs",
+    "build:agent": "npm run gen:numbers && npm run lint:numbers && tsc --noEmit && node mdx/fixtures.test.mjs && npm run test:lib && vite build"
   },
   "dependencies": {
     "mathjax": "^3.2.2",
@@ -30,6 +36,9 @@
     "remark-math": "^6.0.0",
     "remark-gfm": "^4.0.0",
     "remark-directive": "^3.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-mdx": "^3.1.0",
+    "unified": "^11.0.0",
     "unist-util-visit": "^5.0.0",
     "acorn": "^8.14.0",
     "acorn-jsx": "^5.3.2",

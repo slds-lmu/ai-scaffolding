@@ -1,0 +1,62 @@
+{
+  "skill_name": "explorable-widgets",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "In unserem interaktiven Vorlesungsskript (React/MDX) soll der Optimierungsabschnitt ein Widget bekommen, das die Wirkung der Schrittweite γ beim Gradientenabstieg auf f(θ)=θ² zeigt (Konvergenz, perfekter Sprung bei γ=0,5, Zickzack, Divergenz ab γ=1). Baue das Widget samt umgebender MDX-Prosa.",
+      "expected_output": "A .tsx widget + MDX snippet. Must show: prediction elicited before the divergence behavior is revealed (no static spoiler text announcing outcomes); direct manipulation or slider for γ with a dual keyboard-accessible path; state-classified verdict text in the script's language citing its numbering; curated presets or defaults landing on the interesting regimes; seeded determinism; header comment with the one insight and scratchpad-verified numbers; responsive graphic (viewBox+max-w-full or measured canvas); question posed in the prose before the widget and consolidation after.",
+      "files": [],
+      "assertions": [
+        "Predict-then-reveal: the reader is asked for a guess/prediction before the divergence at γ≥1 is shown (GuessFirst/Schaetzfrage or equivalent); no static prose above the widget spoils the outcome",
+        "Dual path: γ is adjustable both by a slider/number input and (if drag exists) drag; no drag-only interaction",
+        "State-classed verdict text exists with distinct branches for convergence, γ=0.5 one-step, zigzag (0.5<γ<1), and divergence (γ≥1), citing the script's numbered results via @-refs or ref()/num(), not typed numbers",
+        "Widget file header names the one insight, the color roles, and cites a verify script path under scripts/verify/ that exists in the copy and asserts the claimed numbers",
+        "Widget is wrapped in :::interaktiv (not :::vertiefung); question posed in prose before the box, consolidation prose inside the box after the widget",
+        "Responsive graphic: SVG with viewBox + max-w-full (and width/height when in a flex row) or measured canvas; no fixed CSS pixel width",
+        "Deterministic: no unseeded Math.random; steppers scrubbable and not autostarting",
+        "RESULT.md reports tsc/test:mdx (and verify) commands with exit code 0"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review die Widgets im SVD-Kapitel unseres interaktiven Skripts und schreib mir einen Review-Bericht.",
+      "expected_output": "A findings-only report (per-widget verdict paragraph plus [MAJOR]/[MINOR]/[NOTE] findings with file:line), preceded by a quantitative scan; deltas reported against any prior review document found in the repo instead of rediscovering known debts; no code changes made during the review.",
+      "files": [],
+      "assertions": [
+        "Report is findings-only; RESULT/REVIEW states no files were modified",
+        "Quantitative scan with a denominator counted from the source tree (number of widgets in src/chapters/06-svd/widgets) precedes per-widget findings",
+        "Per-widget entries carry a media decision (KEEP/REVISE/STATIC/REMOVE) and findings with severity and file:line",
+        "Report evidences both a source pass and a rendered pass (screenshots or explicit statement of what was looked at at ~390 px and desktop)",
+        "Deltas against the prior review documents in reviews/ (or WIDGET_REVIEW) are reported instead of rediscovering known debts",
+        "Findings check prose framing (question before, consolidation after) and collapsed-content dependencies, not only widget internals"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Das Eigenwert-Widget in unseren Konzept-Tooltips ist irgendwie langweilig und funktioniert auf dem Handy schlecht. Mach es besser.",
+      "expected_output": "A redesign that adds direct manipulation (draggable input vector with live Av, hover/tap readout) with a mirrored slider path; responsive sizing fixed (no fixed CSS pixel width); reactive verdict distinguishing eigen-direction vs generic direction; colorblind-safe colors matching a declared color role; no unseeded randomness; styling brought up to the app's current widget standard.",
+      "files": [],
+      "assertions": [
+        "Adds direct manipulation (draggable input vector with live Av) with a mirrored slider/number path on the same state",
+        "Responsive at ~390 px: viewBox + max-w-full (+ width/height attrs when inside flex), no fixed pixel width; controls below the graphic",
+        "Reactive verdict distinguishes eigen-direction vs generic direction and names the mathematical reason; three-state handling for degenerate cases where relevant",
+        "Header comment: one insight, color roles from the project palette, verify script path under scripts/verify/ that exists in the copy",
+        "Uses shared lib primitives (useDrag/DragHandle, Verdikt, Aufgabe, surface classes/--w-* vars) rather than hard-coded hex text colors",
+        "No unseeded Math.random; RESULT.md reports tsc/test:mdx exit 0 and includes a ~390 px screenshot or says why not"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Geh mal die Konzept-Pop-ups zu determinant, linear-system und expected-value in skript/src/concepts durch — irgendwas stimmt da mit den Verdikten nicht, und beim Erwartungswert versteh ich die Wette nicht.",
+      "expected_output": "Findings-only report per pop-up with a KEEP/REVISE/STATIC/REMOVE decision and file:line findings; identifies tolerance-as-equality verdicts (|det|<0.05 called singular, nearly parallel called parallel) and demands the three-state rule; flags the widget using a bet whose payouts the prose never introduced; checks the project's notation conventions before calling anything an error; both a source read and a rendered look; no edits.",
+      "files": [],
+      "assertions": [
+        "Identifies tolerance-as-equality verdicts (|det| threshold called singular, nearly parallel called parallel) and prescribes a three-state rule (exact from controlled parameter / nearly degenerate / regular)",
+        "Flags that expected-value's widget uses a bet whose payouts the prose never introduced and proposes stating E[X] derivation before the widget",
+        "Each pop-up gets a KEEP/REVISE/STATIC/REMOVE decision and findings with severity and file:line; no files modified",
+        "Evidence of reading the project's conventions/notation before flagging errors (no false-positive convention clashes)",
+        "Both a source read and a rendered look are evidenced (screenshot or explicit statement)"
+      ]
+    }
+  ]
+}

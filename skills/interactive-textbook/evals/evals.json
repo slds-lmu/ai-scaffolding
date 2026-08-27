@@ -42,6 +42,14 @@
       "expected_output": "Skill triggers; politely refuses verbatim reproduction, offers and executes the close-paraphrase adaptation instead (policy is in SKILL.md + CONVENTIONS template); otherwise completes the build.",
       "files": [],
       "assertions": []
+    },
+    {
+      "id": 3,
+      "eval_name": "post-build-length-and-collapse-audit",
+      "prompt": "Our interactive Heath ch.3 app (interactive/heath-ch3) has grown to ~40k words for 4 sections and my colleague says half of it isn't on the slides. Review it: what can go, what should be marked optional, and is anything visible relying on stuff that's folded away?",
+      "expected_output": "A read-only review: every block classified CORE/BRIDGE/EXTRA against the source with word counts; a cut/mark list with file:line; cross-section duplicates; a list of visible @-references/quizzes whose targets sit inside deep dives; orphan/near-duplicate concept ids; no files edited.",
+      "files": [],
+      "assertions": []
     }
   ]
 }

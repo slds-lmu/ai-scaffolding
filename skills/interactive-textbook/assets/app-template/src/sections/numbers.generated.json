@@ -1,0 +1,85 @@
+{
+ "version": 1,
+ "sections": {
+  "4.6": {
+   "num": "4.6",
+   "key": "scaling-maps",
+   "title": "A complete MDX section",
+   "anchor": "sec-4.6",
+   "file": "src/sections/_demo.mdx"
+  },
+  "scaling-maps": {
+   "num": "4.6",
+   "key": "scaling-maps",
+   "title": "A complete MDX section",
+   "anchor": "sec-scaling-maps",
+   "file": "src/sections/_demo.mdx"
+  }
+ },
+ "envs": {
+  "4.6": {
+   "num": "4.6",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 45,
+   "fixed": true,
+   "kind": "Definition",
+   "directive": "definition",
+   "name": "Scaling map",
+   "label": "4.6 (Scaling map)",
+   "anchor": "env-4.6"
+  },
+  "scaling-twice": {
+   "num": "4.6.1",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 50,
+   "fixed": false,
+   "kind": "Example",
+   "directive": "example",
+   "name": null,
+   "label": "4.6.1",
+   "anchor": "env-scaling-twice"
+  }
+ },
+ "eqs": {
+  "4.12": {
+   "num": "4.12",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 30,
+   "fixed": true,
+   "anchor": "eq-4.12"
+  },
+  "two-step": {
+   "num": "4.6.1",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 37,
+   "fixed": false,
+   "anchor": "eq-two-step"
+  }
+ },
+ "subs": {
+  "4.6.1": {
+   "num": "4.6.1",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 15,
+   "fixed": true,
+   "title": "What this file demonstrates",
+   "depth": 3,
+   "anchor": "sec-4.6.1"
+  },
+  "why-counted": {
+   "num": "4.6.2",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 54,
+   "fixed": false,
+   "title": "Why the counter matters",
+   "depth": 3,
+   "anchor": "sec-why-counted"
+  }
+ }
+}

@@ -27,13 +27,16 @@ export default function App() {
             walk further along the links inside it. <em>Click</em> a term (or the 📌 in a
             window) to pin it: a pinned window stays open, can be dragged by its title bar,
             and is unaffected by scrolling. Close it with ×, with <kbd>Esc</kbd>, or by
-            clicking elsewhere. Yellow "Deep dive"
-            boxes contain interactive widgets.
+            clicking elsewhere. Blue "Interactive"
+            boxes hold the core widgets; yellow "Deep dive" boxes hold optional material.
           </p>
         </header>
         <main>
-          {sections.map(({ id, title, C }) => (
-            <section key={id} id={`sec-${id}`} className="mb-14 [content-visibility:auto] [contain-intrinsic-size:auto_3000px]">
+          {sections.map(({ id, key, title, C }) => (
+            <section key={id} id={`sec-${id}`} className="mb-14 scroll-mt-20 [content-visibility:auto] [contain-intrinsic-size:auto_3000px]">
+              {/* second anchor for the optional stable section key, so
+                  @sec:<key> resolves as well as @sec:<number> */}
+              {key && <span id={`sec-${key}`} className="block scroll-mt-20" />}
               <h2 className="mb-4 text-2xl font-bold">
                 {id} {title}
               </h2>

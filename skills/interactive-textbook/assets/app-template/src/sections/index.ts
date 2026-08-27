@@ -12,7 +12,14 @@ import type { ComponentType } from "react";
 import { mdxSection } from "../mdx/adapters";
 
 export interface SectionEntry {
+  /** the SOURCE's section number, e.g. "4.6" — also the anchor #sec-4.6 */
   id: string;
+  /**
+   * Optional stable alias, e.g. "scaling-maps". It adds a second anchor
+   * #sec-<key> and lets `@sec:<key>` keep working if the adaptation ever
+   * renumbers. Sections that mirror a source's numbering rarely need it.
+   */
+  key?: string;
   title: string;
   C: ComponentType;
 }
@@ -20,6 +27,7 @@ export interface SectionEntry {
 type SectionModule = {
   default: ComponentType;
   id?: string;
+  key?: string;
   title?: string;
 };
 
@@ -33,6 +41,6 @@ export const sections: SectionEntry[] = Object.entries(modules)
           `Copy the metadata shape from src/sections/_demo.mdx.`
       );
     }
-    return { id: mod.id, title: mod.title, C: mdxSection(mod.default) };
+    return { id: mod.id, key: mod.key, title: mod.title, C: mdxSection(mod.default) };
   })
   .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));

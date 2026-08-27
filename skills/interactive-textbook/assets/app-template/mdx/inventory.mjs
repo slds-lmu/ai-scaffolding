@@ -25,13 +25,14 @@ const SEMANTIC = new Set([
   "EnvBlock",
   "ConceptLink",
   "ExpandedReading",
+  "Interaktiv",
   "Proof",
   "PStep",
   "Quiz",
   "Frage",
 ]);
 
-const CONTAINERS = new Set(["EnvBlock", "ExpandedReading", "Proof", "PStep", "Quiz"]);
+const CONTAINERS = new Set(["EnvBlock", "ExpandedReading", "Interaktiv", "Proof", "PStep", "Quiz"]);
 // Blockgrenzen beenden einen Prosalauf. Das muss VOLLSTÄNDIG sein: fehlten
 // hier th/td, sickerte der Quelltext-Umbruch zwischen `</th>` und `<th>` als
 // Leerzeichen in den Lauf, und die MDX-Tabellenzelle erzeugte keinen — vier
@@ -298,6 +299,7 @@ function scopeLabel(el, code) {
   if (name === "EnvBlock")
     return `EnvBlock(${stable(attrValue(el, "kind", code))},${stable(attrValue(el, "label", code))})`;
   if (name === "ExpandedReading") return `ExpandedReading(${stable(attrValue(el, "title", code))})`;
+  if (name === "Interaktiv") return `Interaktiv(${stable(attrValue(el, "title", code))})`;
   if (name === "Proof") return `Proof(${propsOf(el, code) || "qed=Standard"})`;
   if (name === "PStep") return `PStep(${norm(attrWhyText(el, code)) || "ohne why"})`;
   if (name === "Quiz") return "Quiz";
@@ -378,6 +380,8 @@ export function inventoryFromTsx(code) {
           path.skip();
         } else if (name === "ExpandedReading") {
           add(path, { kind: "deepdive", title: attrValue(el, "title", code) });
+        } else if (name === "Interaktiv") {
+          add(path, { kind: "interaktiv", title: attrValue(el, "title", code) });
         } else if (name === "Proof") {
           add(path, { kind: "proof", props: propsOf(el, code) || "qed=Standard" });
         } else if (name === "PStep") {
@@ -465,6 +469,7 @@ const key = (it) => {
     case "env": value = `env ${it.envKind} ${it.label}`; break;
     case "concept": value = `concept #${it.id} „${it.text}"`; break;
     case "deepdive": value = `deepdive ${it.title}`; break;
+    case "interaktiv": value = `interaktiv ${it.title}`; break;
     case "proof": value = `proof ${it.props}`; break;
     case "step": value = `step why=${it.why}`; break;
     case "quiz": value = `quiz ${it.props}`; break;
