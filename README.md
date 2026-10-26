@@ -14,10 +14,12 @@ for academic / statistics workflows.
 | `explorable-widgets` | Design, build, and review interactive teaching widgets (explorable explanations) for React/MDX lecture scripts — didactic patterns, implementation craft, and a review rubric |
 | `gemini-cli` | Call Gemini through the Antigravity `agy` CLI for reviews and second opinions; picks the strongest available model (required by `council-of-bots`) |
 | `interactive-textbook` | Create, extend, or simplify an interactive textbook or course companion from lecture notes (nested concept pop-ups, definition previews, widgets, MathJax); reuses an existing project's stack, with an optional React/MDX starter app |
+| `latexdiff` | Track-changes PDFs between LaTeX versions (git revisions, Quarto/Rmd via keep-tex), incl. fixes for knitr-verbatim, bookmark, and JSS-template compile failures |
 | `lessons-learned` | Capture and persist lessons learned across sessions |
 | `lrz-remote` | Manage R-based HPC workflows on the LRZ Linux Cluster (CoolMUC-4) via SSH[^lrz-ssh] |
 | `make-quiz` | Create R/exams quiz questions for Moodle (stats/maths/ML lectures) |
 | `peer-review` | Structured peer review generation for statistical/methodological papers |
+| `quarto-latex-gotchas` | Verified failure modes and fixes for Quarto/LaTeX builds (revealjs print/links/figures, JSS template, kableExtra, babel, unicode-math, TinyTeX, headless-Chrome printing) |
 | `r-package-coding` | R package development standards (S3, roxygen2, checkmate, testthat) |
 | `r-scripting` | R scripting and data analysis conventions (tidyverse, knitr::spin) |
 | `reproducibility-review` | Computational reproducibility review of code supplements |
