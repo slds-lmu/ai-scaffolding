@@ -1,19 +1,23 @@
-import { TooltipProvider } from "./lib";
+import { TooltipProvider, useFragmentNavigation } from "./lib";
 import { sections } from "./sections";
 
 // side-effect imports: every concept module registers its tooltip
 import.meta.glob("./concepts/*.tsx", { eager: true });
 // MDX concept modules cannot register themselves — this does it for them
 import "./mdx/concepts-mdx";
+// preview windows for the text's own definitions/theorems (scripts/gen-definitions.mjs)
+import "./mdx/definitions-mdx";
 
 /**
  * TEMPLATE — replace the {{...}} placeholders when instantiating:
  *   {{KICKER}}        e.g. "Interactive textbook · course companion"
  *   {{TITLE}}         e.g. "Chapter 4 · Matrix Decompositions"
  *   {{ATTRIBUTION}}   full citation of the adapted source + link + the
- *                     independent-rewriting notice + "internal use only"
+ *                     applicable attribution/license information
  */
 export default function App() {
+  // #sec-… / #env-… links: open enclosing deep dives, align, settle (see hook)
+  useFragmentNavigation(true);
   return (
     <TooltipProvider>
       <div className="mx-auto max-w-3xl px-4 py-10">
@@ -26,8 +30,7 @@ export default function App() {
             terms explain themselves when you hover. The window that opens is live, so you can
             walk further along the links inside it. <em>Click</em> a term (or the 📌 in a
             window) to pin it: a pinned window stays open, can be dragged by its title bar,
-            and is unaffected by scrolling. Close it with ×, with <kbd>Esc</kbd>, or by
-            clicking elsewhere. Blue "Interactive"
+            and is unaffected by scrolling. Close it with × or <kbd>Esc</kbd>. Blue "Interactive"
             boxes hold the core widgets; yellow "Deep dive" boxes hold optional material.
           </p>
         </header>

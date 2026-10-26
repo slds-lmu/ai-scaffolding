@@ -43,8 +43,10 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { getConcept } from "../registry";
@@ -538,6 +540,9 @@ function ConceptWindow({ entry, depth }: { entry: Entry; depth: number }) {
         onPointerCancel={endDrag}
       >
         <span className="grow">{def.title}</span>
+        {def.badge && (
+          <span className="shrink-0 text-xs font-normal text-slate-400">{def.badge}</span>
+        )}
         {entry.pinned ? (
           <>
             <span title={api.labels.pinned} aria-hidden>
@@ -577,6 +582,11 @@ function ConceptWindow({ entry, depth }: { entry: Entry; depth: number }) {
         >
           {def.body}
         </div>
+        {def.footer && (
+          <div className="border-t border-slate-600 px-3 py-1.5 text-xs text-slate-300 [&_a]:text-sky-300 [&_a]:underline">
+            {def.footer}
+          </div>
+        )}
       </EntryCtx.Provider>
     </div>,
     document.body
@@ -587,8 +597,19 @@ function ConceptWindow({ entry, depth }: { entry: Entry; depth: number }) {
  * Inline link to a concept. Hovering opens a preview window, clicking opens a
  * pinned one. Use in body text, expanded readings, and inside window bodies
  * (nesting is what the whole thing is for).
+ *
+ * With `href` it is an ordinary link that ALSO previews on hover: clicking
+ * follows the link instead of pinning (cross-references like "Satz 12.5.7").
  */
-export function ConceptLink({ id, children }: { id: ConceptId; children: ReactNode }) {
+export function ConceptLink({
+  id,
+  href,
+  children,
+}: {
+  id: ConceptId;
+  href?: string;
+  children: ReactNode;
+}) {
   const api = useContext(WinCtx);
   const parent = useContext(EntryCtx);
   const ref = useRef<HTMLSpanElement>(null);
@@ -611,6 +632,9 @@ export function ConceptLink({ id, children }: { id: ConceptId; children: ReactNo
     }
   };
   useEffect(() => cancel, []);
+
+  // a link whose preview is missing or already open up the chain is still a link
+  if (href && (!def || circular)) return <a href={href}>{children}</a>;
 
   if (!def) {
     // unknown concept id: render plainly but visibly flagged (warn once,
@@ -653,29 +677,70 @@ export function ConceptLink({ id, children }: { id: ConceptId; children: ReactNo
     if (!pinned) api.setHover(mine.current, true);
   };
 
+  const hoverHandlers = {
+    onMouseEnter: (ev: ReactMouseEvent) => {
+      lastPos.current = { x: ev.clientX, y: ev.clientY };
+      if (isOpen()) {
+        api!.setHover(mine.current!, true);
+        return;
+      }
+      cancel();
+      timer.current = window.setTimeout(() => openWindow(false, lastPos.current), HOVER_MS);
+    },
+    onMouseMove: (ev: ReactMouseEvent) => {
+      lastPos.current = { x: ev.clientX, y: ev.clientY };
+    },
+    onMouseLeave: () => {
+      cancel();
+      if (mine.current !== null) api?.setHover(mine.current, false);
+    },
+  };
+
+  if (href) {
+    // cross-reference: hover previews, click (and Enter) follow the link
+    return (
+      <a
+        ref={ref as unknown as RefObject<HTMLAnchorElement>}
+        href={href}
+        data-concept-link={id}
+        {...hoverHandlers}
+        // keyboard: focusing the link shows the same preview as hovering
+        onFocus={() => {
+          if (isOpen()) {
+            api!.setHover(mine.current!, true);
+            return;
+          }
+          const r = ref.current?.getBoundingClientRect();
+          openWindow(false, r ? { x: r.left + r.width / 2, y: r.bottom } : lastPos.current);
+        }}
+        onBlur={() => {
+          cancel();
+          if (mine.current !== null) api?.setHover(mine.current, false);
+        }}
+        onClick={() => {
+          cancel();
+          if (api && isOpen() && !api!.entries.find((e) => e.key === mine.current)?.pinned)
+            api!.close(mine.current!);
+        }}
+      >
+        {children}
+      </a>
+    );
+  }
+
   return (
     <span
       ref={ref}
       tabIndex={0}
       role="button"
       data-concept-link={id}
-      className="cursor-help rounded-sm px-0.5 font-medium text-sky-600 underline decoration-sky-400/60 decoration-dotted underline-offset-2 hover:bg-sky-100/60 focus:outline-2 focus:outline-sky-400 dark:text-sky-300 dark:hover:bg-sky-900/40"
-      onMouseEnter={(ev) => {
-        lastPos.current = { x: ev.clientX, y: ev.clientY };
-        if (isOpen()) {
-          api!.setHover(mine.current!, true);
-          return;
-        }
-        cancel();
-        timer.current = window.setTimeout(() => openWindow(false, lastPos.current), HOVER_MS);
-      }}
-      onMouseMove={(ev) => {
-        lastPos.current = { x: ev.clientX, y: ev.clientY };
-      }}
-      onMouseLeave={() => {
-        cancel();
-        if (mine.current !== null) api?.setHover(mine.current, false);
-      }}
+      className={
+        def.variant === "course"
+          ? // a term the text itself defines: quiet grey underline, text colour unchanged
+            "cursor-help rounded-sm underline decoration-slate-400 decoration-1 underline-offset-[3px] hover:bg-slate-200/60 hover:decoration-slate-600 focus:outline-2 focus:outline-slate-400 dark:decoration-slate-500 dark:hover:bg-slate-700/50 dark:hover:decoration-slate-300"
+          : "cursor-help rounded-sm px-0.5 font-medium text-sky-600 underline decoration-sky-400/60 decoration-dotted underline-offset-2 hover:bg-sky-100/60 focus:outline-2 focus:outline-sky-400 dark:text-sky-300 dark:hover:bg-sky-900/40"
+      }
+      {...hoverHandlers}
       onClick={(ev) => {
         lastPos.current = { x: ev.clientX, y: ev.clientY };
         openWindow(true, lastPos.current);

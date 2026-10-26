@@ -15,6 +15,7 @@ Apply this checklist to evaluate simulation studies in statistical papers.
 - [ ] **Well-specified DGMs**: At least some DGMs where each method's assumptions hold (correct distribution, truth within hypothesis space, identifiability satisfied)? Coverage should be near nominal here — if not, something is wrong with the implementation, not the method.
 - [ ] **Misspecified DGMs**: Deliberate, realistic assumption violations included (distributional, structural, capacity)? Violations varied in severity? Each method tested under both favorable and unfavorable conditions?
 - [ ] **No home-court advantage**: DGMs not exclusively tailored to the proposed method's assumptions?
+- [ ] **Estimable and realistic settings**: Are the method's own identifiability conditions met at the simulated sample sizes and tuning settings (e.g. rank of covariates against basis size), or do some cells leave the target only weakly identified for every method? Is the range of the generated responses plausible for the stated application (non-Gaussian families especially)?
 - [ ] **Reproducibility**: Code/data provided to regenerate datasets?
 
 ## 3. Estimands
@@ -25,11 +26,12 @@ Apply this checklist to evaluate simulation studies in statistical papers.
 ## 4. Methods
 - [ ] **Comparators**: Relevant state-of-the-art methods included?
 - [ ] **Implementation**: Code provided for all methods? Convergence issues reported?
-- [ ] **Fair comparison**: All methods use appropriate/default settings (not misconfigured to disadvantage competitors)?
+- [ ] **Fair comparison**: All methods use appropriate/default settings (not misconfigured to disadvantage competitors)? If a competitor does surprisingly badly, check its implementation in the supplement before accepting the result (a published baseline was once found to carry a scaling error in its penalty).
 - [ ] **Failure handling**: Non-convergence and method failures documented? Failure rates reported per method × DGM?
 
 ## 5. Performance Measures
 - [ ] **Appropriateness**: Metrics aligned with aims (bias, SE, coverage, power, MSE)?
+- [ ] **Absolute quality**: Is it shown that the estimates are useful at all (relative error, error against signal size), not only how methods rank or whether intervals cover? Near-nominal coverage of a useless estimate, or a ranking among uniformly poor fits, supports little.
 - [ ] **Hypothesis testing**: Type I error AND power reported?
 - [ ] **Monte Carlo error**: MCSEs reported for key metrics?
 - [ ] **Sample size**: n_sim justified to control MCSE?
@@ -62,6 +64,8 @@ Apply this checklist to evaluate simulation studies in statistical papers.
 - No misspecification testing (robustness unknown)
 - Proposed method wins on every metric in every scenario (suspiciously good — likely selective reporting)
 - Post-hoc metric or scenario selection (ADEMP not locked before results)
+- Only relative performance reported; no indication of whether any method estimates the target well
+- Unexplained anomalies noted in passing (a collapse in one design corner, identical results across arms) instead of investigated
 
 ## Key References
 - Morris TP, White IR, Crowther MJ (2019). Using simulation studies to evaluate statistical methods. *Statistics in Medicine* 38:2074-2102.

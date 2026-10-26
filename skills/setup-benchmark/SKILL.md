@@ -143,9 +143,33 @@ for (i in seq_len(n_reps)) {
 }
 ```
 
-**Never** set.seed inside a loop to the same value. **Never** let methods that use internal RNG reset the global seed.
+Two ways this goes wrong silently: calling `set.seed()` inside the loop with the
+same value makes every replicate draw the same data, so n_sim is effectively 1
+while the Monte Carlo SEs claim otherwise; and a method that resets the global
+seed internally (some bootstrap and CV wrappers do) makes subsequent replicates
+correlated with it. Seed once per task from the pre-drawn `task_seeds`, and wrap
+any sub-step that needs its own seed in an RNG save/restore (`on.exit()`, see
+item 16 of the Bug Checklist below).
 
-For parallel runs with `furrr`, use `seed = TRUE` in `furrr_options()` to enable L'Ecuyer-CMRG parallel-safe RNG. This generates one independent stream per task via `nextRNGStream()`, reproducible regardless of worker count. Set `set.seed()` before the `future_map()` call. See Parallelization section below and `references/r-packages.md` for details.
+With `furrr` there are two seeding strategies. Pick one; combining them is
+double seeding, and the outer one silently loses.
+
+- **Pre-drawn per-task seeds** (what the template and the example do, and the
+  default for benchmarks): draw `task_seeds` once as above, call
+  `set.seed(task$seed)` inside each task, and pass `furrr_options(seed = NULL)`.
+  `NULL` tells future you are handling RNG yourself, so it neither injects a
+  stream nor warns about in-task RNG use. Results are reproducible regardless
+  of worker count or chunking, and any single task can be re-run in isolation
+  by its id, which is what makes failures debuggable.
+- **`furrr_options(seed = TRUE)`**: future assigns one L'Ecuyer-CMRG stream per
+  element via `nextRNGStream()`, derived from the `.Random.seed` at the time of
+  the call, so `set.seed()` once before `future_map()`. Also reproducible
+  regardless of worker count, but a task's stream depends on its position in
+  the call, so re-running one task alone means recreating the whole sequence.
+  Use it when the tasks have no natural id to seed from.
+
+Never `set.seed()` inside a task *and* pass `seed = TRUE`. See
+`references/r-packages.md` for how the streams work.
 
 ## Performance Measures
 
@@ -162,7 +186,11 @@ Store estimates data: θ̂ᵢ, SE(θ̂ᵢ), and indicators per (dgp, method, est
 
 ## Truth Function Design
 
-Truth functions MUST satisfy the same constraints as the model:
+Truth functions have to satisfy the same constraints as the model. If the model
+centers a smooth with Simpson weights and the truth is centered with rectangular
+weights (or not at all), estimand and estimate differ by a constant offset that no
+amount of data removes, and coverage collapses toward 50% or 34% (see "When
+Coverage Fails"):
 
 ```r
 # If model centers with Simpson weights:
@@ -192,23 +220,43 @@ Exception: Store pointwise only when diagnosing WHERE coverage fails.
 
 ## Parallelization
 
-Use `furrr` with **explicit exports** and `seed = TRUE` for reproducibility:
+Use `furrr` with the per-task seeding from the Seed Management section, and
+let future find the globals itself:
 
 ```r
-plan(multisession, workers = parallel::detectCores() - 1)
+# Pin BLAS threads BEFORE plan(): each multisession worker is a fresh R process
+# that inherits these and otherwise spawns its own OpenBLAS pool (7 workers × 8
+# threads on 8 cores measured a 10× slowdown). For fork-based mclapply this is
+# too late — set OPENBLAS_NUM_THREADS=1 in the shell that launches Rscript.
+Sys.setenv(OPENBLAS_NUM_THREADS = "1", OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
+plan(multisession, workers = parallelly::availableCores(omit = 1))
 
 set.seed(config$base_seed)  # Set BEFORE future_map for reproducibility
 
 furrr_opts <- furrr_options(
-    globals = c("generate_data", "fit_method", "extract_metrics",
-                "truth_functions"),  # ALL user functions
-    seed = TRUE  # L'Ecuyer-CMRG: one independent stream per task
+    seed = NULL,                 # tasks call set.seed(task$seed) themselves; TRUE here
+                                 # would double-seed (see Seed Management)
+    packages = c("mgcv")         # only for what future cannot infer from the globals:
+                                 # S3 methods reached via dispatch, functions called by
+                                 # string (do.call("fn")), formula specials
 )
 
 results <- future_map_dfr(tasks, run_task, .options = furrr_opts, .progress = TRUE)
 ```
 
-**Minimize data transfer**: Avoid exporting large objects to workers. If workers need large lookup tables, have them load data on first use rather than passing via `globals`. See `references/r-packages.md`.
+Do not hand-list `globals`. future walks the call graph of `run_task` recursively,
+exports every helper it reaches (top-level definitions and `source()`d files
+included), and attaches the packages those globals live in, so a bare `gam()` call
+brings mgcv along by itself. In furrr, anything other than a plain `TRUE` for
+`globals` (a character vector, a named list, or `structure(TRUE, add = ...)`)
+replaces that auto-detection entirely, and the first helper you did not list kills
+every worker with `could not find function` (observed; the tryCatch error handler
+then dies on the same missing helper). `parallelly::availableCores()` respects
+SLURM, cgroup and `mc.cores` limits where `detectCores()` does not.
+
+**Minimize data transfer**: a large object referenced inside `run_task` is
+auto-exported to every worker. If workers need a big lookup table, have them load
+it on first use instead. See `references/r-packages.md`.
 
 ## Threats to Validity
 
@@ -235,7 +283,7 @@ See `references/bug-checklist.md` for detailed code examples:
 
 1. `expand_grid()` not `data.frame()` for factorial design
 2. `rep(x, each=n)` vs `rep(x, times=n)` correct
-3. All functions exported to parallel workers
+3. Helpers visible to workers: defined at top level, `packages =` listed, no hand-written `globals`
 4. Truth uses same centering weights as model
 5. Truth evaluated on same grid as coefficients
 6. Truth functions satisfy model constraints
@@ -267,6 +315,19 @@ Building a benchmark is iterative. Follow these phases and **never skip review g
 6. **Full production run**: Final n_rep with incremental saves
 - **R3. Results review**: Run `/council-of-bots` on final results before reporting. Check rankings match theory, MC SEs support conclusions, no suspicious patterns.
 
+R1–R3 are the whole apparatus. Do not add code-hash stamps that force reruns, decision
+rules registered in advance for a throwaway pilot, amendment ledgers, or further gates
+unless the user asks: record software versions and verify equivalence by rerunning a
+sample. A threshold fixed in advance helps to read a result; it is not a verdict that
+ends the discussion.
+
+**Before R2, put one check page per DGP in front of the user** (computed, not eyeballed):
+the identifiability conditions the method's documentation states, evaluated directly at
+every design cell (the software may test a weaker condition and stay silent); the range
+of the generated responses; signal against noise; the relative error of a first fit;
+and every distinct warning the fits printed, with counts. Anything odd on the page
+blocks production until it is explained.
+
 **Always record computation times** in your metrics (add `fit_time` to output tibbles). This enables timing estimation and helps identify slow methods.
 
 **Smoke tests must be fast.** When verifying code runs end-to-end, minimize ALL expensive dimensions simultaneously: smallest n, fewest/cheapest DGP cells, coarsest grids, 1–2 reps. The goal is to exercise every code path (fit, extract, save, aggregate), not to produce meaningful statistics. Exclude expensive factor levels (large n, fine grids) entirely — if the code works for n=20 on a 30×40 grid, it works for n=80 on a 90×120 grid. Test expensive settings only when you specifically need to verify scaling behavior or timing. Always run smoke tests in background and parallelize.
@@ -289,10 +350,11 @@ See `references/development-workflow.md` for the SE ratio diagnostic and smoothi
 
 ## Visualization
 
-**Mandatory**: Never show bare means/medians without variability — always use
-boxplots, violins, or pointranges (median + IQR). Use interpretable ratio-scale
-labels (`0.1, 0.5, 1, 2, 10`) on log axes, not raw log values. Prefer
-pointranges over bar charts. See `references/visualization.md` for these rules
+Always pair a location with its spread (boxplots, violins, or pointranges with
+median + IQR): a bare mean hides the Monte Carlo variability that decides whether
+a difference between methods is real, which is the one question the plot exists
+to answer. Use interpretable ratio-scale labels (`0.1, 0.5, 1, 2, 10`) on log
+axes, not raw log values. Prefer pointranges over bar charts. See `references/visualization.md` for these rules
 and the diagnostic plot catalog (zip, lollipop, nested loop, heat map, Bland-Altman).
 
 The `rsimsum` package generates zip, lollipop, nested loop, and heat plots via `autoplot()`. See `references/r-packages.md` for the package ecosystem.
@@ -326,3 +388,122 @@ Structure results by ADEMP. For tables:
 - Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate statistical methods. *Statistics in Medicine*. 2019;38:2074-2102.
 - Chen RB, Hsu YW, Hung Y, Wang W. Discrete-event simulation and Monte Carlo methods. *JSPI*. 2016;170:61-75.
 - Niessl C, Herrmann M, Greven S. Over-optimism in benchmark studies and the multiplicity of design and analysis options. *WIREs DMKD*. 2022;12:e1441.
+
+## Hard-won lessons (verified in past studies)
+
+- **Never write speculative findings in reports.** Always compute summary
+  statistics in code and generate prose from them (e.g., Quarto `results: asis`
+  chunks with `cat(sprintf(...))`). Speculative findings reliably drift from
+  data — verified in a session where 6/7 key findings were factually wrong.
+- **Before running a "does method X fail under misspecification?" experiment on
+  real data, first CHECK that the real data actually violates X's assumption.**
+  It is a cheap diagnostic (an ACF, a variogram, a residual check) and it decides
+  whether the expensive run can answer anything at all: if the real data happens to
+  satisfy the assumed model, the arm is not a misspecification probe and the result
+  is uninterpretable. Pair it with a *synthetic* cell where the truth is known to
+  violate the assumption — the real-data arm confounds misspecification with every
+  other feature of real data, so the synthetic cell is usually the sharper test.
+- **A competitor is only as strong as its nuisance-parameter estimator.** Before
+  concluding "modelling the dependence doesn't help", check how the dependence
+  parameter was estimated. A crude moment estimator can make a correctly specified
+  competitor look weak (a lag-1 moment ρ̂ found 0.45 against a truth of 0.90; the
+  fREML-profiled ρ̂ found 0.90 and beat the method we were advocating).
+- **Never let a replicate error out and get dropped.** If a per-rep constraint can
+  render a replicate infeasible (e.g. `sigma_e^2 = var(eta)/snr - v_phase` going
+  negative), the reps that die are systematically the *extreme* ones — here, the most
+  strongly correlated, i.e. exactly where the methods fail hardest. Silently dropping
+  them is **selection on the outcome**, and it biases the study toward "nothing is
+  wrong here". Reparameterize so every rep is feasible (use the *nominal* nuisance
+  quantity, not the realized one) and record the realized value as a diagnostic.
+- **Lag-1 autocorrelation is not "the" dependence strength — use the long-run-variance
+  ratio `1 + 2 Σ_k ρ_k`.** That is what deflates the effective sample size. A
+  slowly-decaying plateau ACF had lag-1 `0.36` but LRV ratio `5.3`, while an AR(1)
+  matched to that same lag-1 has LRV only `2.1` — so an AR(1) working covariance cannot
+  match both, and the gap is a *quantitative prediction* of how it fails. Corollary:
+  don't assume a "smooth" process has lag-1 ACF ≈ 1 — measure it. A phase component
+  `a·φ(t)·η'(t)` inherits `η'`'s oscillation, giving `ρ(1) ≈ 0.5`, not ≈ 1.
+- **Shipping a simulation to a collaborator's machine: same package version number ≠
+  same code.** A collaborator's CRAN `refund` 0.1.40 lacked internals present in the
+  local dev build "0.1-40"; every fit died only after a full production launch. Before
+  relying on a non-CRAN function, `stopifnot(exists("fn", asNamespace("pkg")))` at
+  startup, and bundle a source tarball of the local build (`R CMD build
+  --no-build-vignettes`) with the scripts.
+- **Resumable sim drivers: look tasks up by id (`grid[grid$task == i, ]`), never by row
+  position**, so a filtered grid (cell regex, partial rerun) keeps seeds and cells
+  aligned; and make chunk membership depend only on the grid, never on the core count,
+  or resuming on a different machine strands/duplicates chunks.
+- **Never read coverage off a pffr fit before a known-answer cell with a bump-shaped
+  truth has passed.** pffr's default `bs.yindex` (k = 5) cannot represent a localized
+  bump: it produced bump-shaped bias and 0.08 coverage that had been blamed on the
+  pcre constraint (k = 20 → 0.31; the rest is genuine attenuation). Set
+  `bs.yindex = list(bs = "ps", k = 20, m = c(2, 1))` explicitly.
+- **Enumerate replicate jobs REP-MAJOR** (`order(rep_id, dgp_id)`), not cell-major. An
+  interrupted or resumed run then leaves *equal reps per cell*, so a partial analysis
+  stays comparable instead of silently contrasting a 50-rep cell with a 3-rep one.
+- **`stats::acf()` re-demeans each series; on fit residuals this biases the ACF/LRV
+  low.** Residuals are already centered by the fitted mean; per-curve re-demeaning
+  drove a Bartlett-LRV of white noise to 0.83 (should be ~1) and of AR(0.8) at D=100
+  to 5.3 (truncated-population value 7.1) — which silently wrecked an LRV-matched
+  rho selector. Use `acf(x, demean = FALSE)` for residual dependence diagnostics, and
+  invert the SAME truncated/tapered functional you measured with (not the untruncated
+  textbook formula) when mapping an LRV estimate back to a parameter.
+- **Simulated functional covariates for `ff()` terms need effective rank ≥ 1.5 × k_s**
+  (eigenvalues of Cov(X) covering 99.5% of variance; Scheipl & Greven 2016). Below that
+  the coefficient surface is only weakly identified and part of the truth can lie
+  OUTSIDE the observed curves' span — a shared bias floor that makes absolute RMSE and
+  coverage uninterpretable for every method (measured: 4–6% orthogonal truth energy at
+  G=20 with rank 16 vs k_s=12). Two traps: (a) `ff()`'s built-in warning only fires at
+  the much weaker `rank < k_s`, so a violation of the 1.5 rule is SILENT; (b) small G
+  caps the rank at ~n regardless of the generator's basis dimension, so a design that is
+  fine at G=80 can be broken at G=20. Check the rank per cell BEFORE running, and treat
+  an "oracle-basis" arm whose k exceeds the covariate rank as no oracle at all.
+- **Check that every dependence/misspecification scenario actually breaks the method
+  before production** — compute the quantity that matters (true sampling SD / model SE of
+  the estimands at fixed penalties, exact or by MC over the error process only), not a
+  scalar summary. A misregistration scenario that looked plausible was null (ratio ≈ 1), and
+  the design effect 1ᵀΣ1/trΣ is blind to sign-changing correlations (warp and damped-cosine
+  errors with DE ≈ 1.2–1.7 still broke model SEs by 2×).
+- **Plasmode truths favour the method that fitted them.** A truth taken from a REML fit is
+  REML-shaped (and vice versa for NCV); in one real dataset the NCV/REML MSE ratio went from
+  0.64 to 2.2 depending on the truth source. Use one truth per compared method as a factor.
+  The truth source also changes the residual pool (residuals = data − that fit), so it is a
+  sensitivity factor, not a controlled contrast; cross truth source × residual source to isolate it.
+- **Check a real dataset's variable semantics empirically before building a plasmode on it.**
+  Column suffixes lie (`_ap` in a gait dataset was the frontal plane, not sagittal: within-curve
+  range 6° vs 31°); the wrong plane produced a headline "NCV loses 2.2×" that shrank to a G-dependent
+  trade-off on the right variable. Plot/range-check candidate columns first.
+- **Test a proposed mechanism synthetically before writing it into a summary.** "NCV loses because
+  β is weakly identified" was refuted by six low-rank-covariate cells (NCV's gain got larger).
+- **Report how good the estimates are in absolute terms before comparing methods.**
+  Coverage, RMSE ratios and rankings say nothing about whether any method estimates the
+  target usefully. In one study relative RMSE was first computed on day 10, after the
+  first paper draft: the default method's coefficient surface had relative RMSE > 0.5
+  in 37% of replicates, which changed the paper's recommendations. Store a relative
+  error per estimand from the first pilot on.
+- **Range-check the generated responses in every cell, especially for non-Gaussian
+  families.** A Poisson generator whose linear predictor was scaled like the Gaussian
+  one produced counts up to 1e143 and interval widths up to 1e118; this was written up
+  as a finding about the methods until the user called the DGP unrealistic, after the
+  locked benchmark had finished.
+- **After the first cluster run of a study, read the logs and tabulate the distinct
+  warnings; make each job assert what it actually ran.** A pilot of 2880 arms silently
+  ran a different estimator because the cluster's older library ignored an argument;
+  it passed a 162-assertion test suite and two review rounds, since the outputs looked
+  plausible. A software warning about the design sat unread in the logs for eight days.
+  Have the job record the loaded package builds and stop if the fitted object does not
+  show the requested estimator or option.
+- **An unexplained pattern is a blocker, not a footnote.** A collapse in one design
+  corner filed as "no mechanism asserted", or result rows identical across arms that
+  should differ and then hedged in the text, were both real defects (a design flaw, a
+  stale build) that lived for weeks or days. Chase the cause before running more on top.
+- **One engine.** New studies add rows to the design table or arguments to the one
+  driver. A project that copied its driver for each new study ended with 38 copies
+  (32,000 lines), and the same mistakes (order of operations in a summary, a correction
+  applied twice, a centering convention) came back in the copies.
+- **Do not hold the analysis for the last replicates.** Run it on what has landed
+  (rep-major enumeration keeps cells comparable) and state what is missing. An analysis
+  once waited three days for the tail of two cells out of 21,000 replicates.
+- **Gaussian-copula generators: don't round-trip Gaussian responses through
+  `qnorm(pnorm(z))`** — it returns `Inf` for |z| ≳ 8 (e.g. after a heteroskedastic scale
+  factor). Pass latent values to each family and apply `pnorm()` only for non-Gaussian
+  quantile draws.

@@ -11,6 +11,7 @@
 export type NumKey =
   | "definition:4.6"
   | "eq:4.12"
+  | "eq:guess-length"
   | "eq:two-step"
   | "example:scaling-twice"
   | "sec:4.6"
@@ -22,6 +23,7 @@ export type NumKey =
 export const NUMBERS: Record<NumKey, readonly [string, string]> = {
   "definition:4.6": ["4.6", "Definition 4.6"],
   "eq:4.12": ["4.12", "(4.12)"],
+  "eq:guess-length": ["4.6.2", "(4.6.2)"],
   "eq:two-step": ["4.6.1", "(4.6.1)"],
   "example:scaling-twice": ["4.6.1", "Example 4.6.1"],
   "sec:4.6": ["4.6", "Section 4.6"],

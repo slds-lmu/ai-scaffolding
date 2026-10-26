@@ -54,6 +54,10 @@
  *
  * There is no @chapter: — one app is one chapter. Cross-app links are
  * ordinary Markdown links.
+ *
+ * References to a definition/theorem/lemma/corollary (PREVIEW_FAMILIES) also
+ * preview its wording on hover, and `:d[term]{#id}` links a term to the
+ * definition that introduces it (see remark-fmm, scripts/gen-definitions.mjs).
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -94,6 +98,19 @@ const FAMILY = {
   Algorithmus: "algorithm",
 };
 export const envFamily = (kind) => FAMILY[kind] ?? kind;
+
+/**
+ * Families whose environments get a hover preview (scripts/gen-definitions.mjs
+ * copies their body to src/definitions/). `:d[term]{#id}` and @references to
+ * them show the wording on hover; examples, remarks and algorithms stay
+ * plain links.
+ */
+export const PREVIEW_FAMILIES = new Set(["definition", "theorem", "lemma", "corollary"]);
+export const hasPreview = (env) => !!env?.anchor && PREVIEW_FAMILIES.has(envFamily(env.kind));
+/** registry id of the preview window (own namespace next to the concept ids) */
+export const previewId = (envId) => `env:${envId}`;
+/** A generated preview copy (src/definitions/…)? Special rules apply there. */
+export const isPreviewFile = (filePath) => /[\\/]src[\\/]definitions[\\/]/.test(String(filePath ?? ""));
 
 /* ------------------------------------------------------------------ */
 /* Label forms                                                         */

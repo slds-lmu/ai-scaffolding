@@ -1,6 +1,6 @@
 ---
 name: peer-review
-description: Generate rigorous, evidence-based peer reviews for statistical and methodological papers. Use when asked to review a manuscript, evaluate a statistical paper, write referee comments, or assess methodological research. Produces structured reviews with Summary, Major Issues, and Minor Issues sections. Includes specialized checklists for evaluating simulation studies (Morris et al. 2019) and code/data supplements. Always outputs reviews using the provided Quarto template.
+description: Generate rigorous, evidence-based peer reviews for statistical and methodological papers, written into the bundled Quarto template as a .qmd with Summary, Major Issues, and Minor Issues. Use whenever the user asks to review, referee, or assess a manuscript, write referee comments or a report for a journal, evaluate a submitted paper or preprint, or shares a paper PDF/arXiv link and wants a written assessment of its methods and claims, even if they never say "peer review". A quick "is this paper any good?" in conversation does not need the full template; answer it directly. Includes checklists for simulation studies (Morris et al. 2019) and code/data supplements; to actually execute a supplement use reproducibility-review, for a student thesis use grading-thesis.
 ---
 
 # Statistical Peer Review Skill

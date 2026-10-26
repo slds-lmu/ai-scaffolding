@@ -16,7 +16,12 @@ Create quiz questions in R/exams format for FMM lecture slide sets.
 
 ### 1. Read and Analyze Slides
 
-Read the .Rmd file in `/slides/`. Identify:
+Read the slide deck in whatever form it exists: the source (`.qmd`, `.Rmd`, or
+`.tex`, typically under `/slides/` or `/slides-tex/`) is best because it carries
+the exact notation; a rendered PDF or HTML works when that is all there is. If
+the deck uses a macro file (`header-fmm.tex`, `_macros.qmd`, or similar), read
+it too, so you know which commands are course macros that step 5 has to
+replace with standard LaTeX. Identify:
 - Definitions and theorems
 - Important properties and relationships
 - Practical examples and calculations
@@ -184,3 +189,11 @@ R packages: `exams` (CRAN). No other dependencies.
 - Too many hard questions (keep most Easy/Medium)
 - Missing parametrization (add randomization for calculations)
 - Wrong exshuffle (use FALSE when order matters)
+
+## Regenerated question banks
+
+- **For AI-regenerated assessment banks: reskinning is not replacement.** A "fresh"
+  quiz bank kept verbatim alternatives + identical answer keys under new cover
+  stories — last year's circulated key transferred 1:1 (23/25 items). Gate any
+  regenerated bank by diffing answer keys AND alternative text against the burned
+  original; require changed alternative sets/answer patterns/question types.

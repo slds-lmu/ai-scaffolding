@@ -42,10 +42,18 @@ claude -p --allowedTools Read,Grep,Glob "This prompt may be swallowed"
 
 ## Review Guidance
 
+Model choice (`--model` takes the aliases `fable`, `opus`, `sonnet`, or a full
+model name; `--effort low|medium|high|xhigh|max` sets reasoning effort):
+
+- Reviews, second opinions, and anything that needs judgment: `fable` (the
+  strongest tier), or `opus` if that is unavailable. A second opinion from a
+  weaker model than the one doing the work is rarely worth the round trip.
+- Mechanical tasks (summarize a file, list the functions, convert a format):
+  `sonnet`, which is faster and cheaper.
+
 For small reviews:
 
 - Inline the snippet or diff in the prompt.
-- Use `sonnet` unless depth matters more than speed.
 
 For large reviews:
 
@@ -53,7 +61,6 @@ For large reviews:
 - Use `--target` for each reviewed file or root directory; the launcher appends those
   paths to the staged prompt. List additional absolute paths in the context file.
 - Add extra access roots via `--add-dir` when needed.
-- Use `opus` for deeper reasoning when latency is acceptable.
 
 ## Concurrency
 
@@ -70,7 +77,7 @@ $HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
   --job-dir /tmp/claude-review-job \
   --target /abs/path/project/file1.R \
   --target /abs/path/project/file2.R \
-  --model opus
+  --model fable
 ```
 
 Start that through `functions.exec_command`. If it returns a running session instead of a final answer, continue other work and poll the session later.

@@ -12,8 +12,8 @@ Options:
   --job-dir DIR                 Reuse or create a specific job directory
   --target PATH                 File or directory Claude should be able to read
   --add-dir DIR                 Extra directory to allow explicitly
-  --model MODEL                 Claude model alias or full model name
-  --effort LEVEL                low, medium, high, or max
+  --model MODEL                 Claude model alias (fable, opus, sonnet) or full model name
+  --effort LEVEL                low, medium, high, xhigh, or max
   --timeout SECONDS             Kill the run after this many seconds
   --output-format FORMAT        json or text (default: json)
   --permission-mode MODE        default: bypassPermissions
@@ -26,7 +26,7 @@ Options:
 
 Examples:
   claude-run.sh --prompt-text "Summarize this file" --target ./R/file.R
-  claude-run.sh --prompt-file /tmp/review.md --target ./R --model opus
+  claude-run.sh --prompt-file /tmp/review.md --target ./R --model fable
 EOF
 }
 

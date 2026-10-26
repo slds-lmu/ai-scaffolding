@@ -159,12 +159,13 @@ See `study-design.md` for guidance on when to use space-filling vs factorial des
 
 ```r
 library(furrr)
-plan(multisession, workers = 4)
+Sys.setenv(OPENBLAS_NUM_THREADS = "1", OMP_NUM_THREADS = "1")  # before plan()
+plan(multisession, workers = parallelly::availableCores(omit = 1))
 
 results <- future_map(tasks, run_task,
     .options = furrr_options(
-        seed = TRUE,              # Use L'Ecuyer-CMRG streams
-        globals = c("run_task", "generate_data", "fit_method")
+        seed = TRUE               # Use L'Ecuyer-CMRG streams; no `globals`:
+                                  # future auto-detects run_task's helpers
     ),
     .progress = TRUE
 )
@@ -178,10 +179,18 @@ results <- future_map(tasks, run_task,
 
 **Pitfall**: `seed = TRUE` uses the current `.Random.seed`. Set `set.seed()` before the `future_map()` call for full reproducibility.
 
+**Do not combine with per-task seeds.** The benchmark template pre-draws
+`task_seeds` and calls `set.seed(task$seed)` inside each task; that pattern
+needs `seed = NULL` (you manage RNG; future neither injects a stream nor warns).
+Adding `seed = TRUE` on top is double seeding: the in-task `set.seed()` wins and
+the stream is wasted, and readers can no longer tell which mechanism the results
+depend on. Choose `seed = TRUE` only when tasks have no id to seed from.
+
 **Minimizing data transfer to workers:**
 ```r
-# SLOW: Large objects copied to every worker
-furrr_options(globals = c("huge_lookup_table", "run_task"))
+# SLOW: run_task references huge_lookup_table, so auto-detection serializes
+# it into every chunk (one per worker by default)
+run_task <- function(task) { ... huge_lookup_table[[task$key]] ... }
 
 # FASTER: Workers load data themselves (lazy, once per worker)
 run_task_self_contained <- function(task) {

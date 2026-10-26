@@ -3,53 +3,82 @@
   "evals": [
     {
       "id": 0,
-      "eval_name": "single-section-smoke-mml-ch5",
-      "prompt": "Please make an interactive-textbook version of just section 5.1 (Differentiation of Univariate Functions) from the MML book pdf in literature/ — same style as the chapter-4 app, put it in a scratch folder. Audience: our FMM BSc students but assume weak prerequisites.",
-      "expected_output": "A building Vite app with one section component covering 5.1 (difference quotient, derivative definition, Taylor, faithful paraphrase with book numbering), concept tooltips with closure, at least 2 deep-dive widgets, Playwright-verified, screenshots reported.",
+      "eval_name": "existing-single-section",
+      "prompt": "Make section 5.1 of my supplied lecture notes interactive in the existing course site. Preserve our notation and target first-year students.",
+      "expected_output": "An in-place section adaptation with useful interaction only where justified.",
       "files": [],
       "assertions": [
-        "App builds cleanly (tsc + vite build)",
-        "Section 5.1 component registered with correct title",
-        "Book 5.x numbering used (>=3 Eq tags, >=1 Definition EnvBlock)",
-        "Concept closure: every ConceptLink id has a module",
-        "Tooltip nesting: >=1 concept module links another concept",
-        ">=2 ExpandedReading blocks, >=1 with an interactive widget",
-        "No verbatim prose (5 sampled 8+-word substrings absent from PDF text)",
-        "Screenshots incl. open tooltip; RESULT.md reports 0 MathJax/console errors"
+        "Inspects existing stack, conventions, source and section before editing",
+        "Preserves requested coverage, mathematical assumptions, numbering and existing user decisions",
+        "Does not require a new app, nested tooltips, fixed widget count or agent pool",
+        "Checks changed source and rendering and identifies any verification gaps"
       ]
     },
     {
       "id": 1,
-      "eval_name": "spec-paste-different-book",
-      "prompt": "I found this interactive-textbook prompt online [assume the same Paradox-tooltip spec]. Can you do this for Heath Scientific Computing chapter 2 sections 2.1-2.2? The PDF is in literature/. English, audience = curious first-year with school math only.",
-      "expected_output": "Skill triggers; clarifies scope; scaffolds from template; runs workflow over 2 sections of a DIFFERENT book (tests generality of page-mapping and prompts); paraphrase policy applied; verification run.",
+      "eval_name": "new-offline-chapter",
+      "prompt": "Build a new offline interactive chapter from my own supplied notes. I need one HTML file I can open without a server.",
+      "expected_output": "An original-notes adaptation using the single-file build when choosing the starter, with actual offline checks.",
       "files": [],
       "assertions": [
-        "App builds cleanly (tsc + vite build)",
-        "Sections 2.1 and 2.2 registered with Heath's actual titles",
-        "Heath's own numbering used, not invented",
-        "Concept closure: every ConceptLink id has a module",
-        "Tooltip nesting: >=1 concept module links another concept",
-        ">=4 ExpandedReading blocks total, >=2 with interactive widgets",
-        "No verbatim prose (5 sampled 8+-word substrings absent from PDF text)",
-        "Screenshots incl. open tooltip; RESULT.md reports 0 MathJax/console errors"
+        "Recognizes the user-owned source without imposing a blanket copyright refusal or private-only label",
+        "Uses build:singlefile if using the starter; verifies the actual output with network disabled",
+        "Provides necessary concept explanations without recursive generation or mandatory nesting",
+        "Does not claim a PDF exporter or chapter lazy loading is included in the starter"
       ]
     },
     {
       "id": 2,
-      "eval_name": "copyright-pushback-handling",
-      "prompt": "Turn chapter 4.7-4.8 of the Deisenroth PDF into an interactive page, keep the text exactly verbatim like the original please, it's fine because the book is free online.",
-      "expected_output": "Skill triggers; politely refuses verbatim reproduction, offers and executes the close-paraphrase adaptation instead (policy is in SKILL.md + CONVENTIONS template); otherwise completes the build.",
+      "eval_name": "bounded-prerequisites",
+      "prompt": "Add a short least-squares section for statistics MSc students to this React/MDX book. They know linear algebra. Reuse our components and keep it brief.",
+      "expected_output": "A concise section using existing definitions and bounded prerequisite support.",
       "files": [],
-      "assertions": []
+      "assertions": [
+        "Does not re-teach elementary matrix concepts or invent dozens of prerequisite pop-ups",
+        "Checks rank assumptions and distinguishes conditioning of the problem from a chosen algorithm",
+        "Reuses current math engine, parser, numbering and UI conventions",
+        "Assessment, if present, tests explanation or transfer, not whether a widget was clicked"
+      ]
     },
     {
       "id": 3,
-      "eval_name": "post-build-length-and-collapse-audit",
-      "prompt": "Our interactive Heath ch.3 app (interactive/heath-ch3) has grown to ~40k words for 4 sections and my colleague says half of it isn't on the slides. Review it: what can go, what should be marked optional, and is anything visible relying on stuff that's folded away?",
-      "expected_output": "A read-only review: every block classified CORE/BRIDGE/EXTRA against the source with word counts; a cut/mark list with file:line; cross-section duplicates; a list of visible @-references/quizzes whose targets sit inside deep dives; orphan/near-duplicate concept ids; no files edited.",
+      "eval_name": "length-review",
+      "prompt": "This four-section course companion is 40,000 words. Review what can go, what should be optional, and whether visible text relies on collapsed material. Findings only.",
+      "expected_output": "A scoped review with core/bridge/extra distinctions, concrete cuts, dependencies, and evidence.",
       "files": [],
-      "assertions": []
+      "assertions": [
+        "No content edits; identifies duplicate explanations and unnecessary expansions with locations",
+        "Distinguishes optional links into deep dives from essential hidden prerequisites",
+        "Before declaring a concept orphaned, checks the entry points the project actually has (glossary, search, navigation, stable anchors), and says which ones exist",
+        "No mandatory full rewrite, widget count, or artificial zero-overlap prose gate"
+      ]
+    },
+    {
+      "id": 4,
+      "eval_name": "small-page-no-framework",
+      "prompt": "I want a one-page explanation of the sample mean, with a slider changing one observation. Plain HTML is fine.",
+      "expected_output": "A small readable page; the textbook starter is optional and likely unnecessary.",
+      "files": [],
+      "assertions": [
+        "Chooses an implementation proportionate to one control and one explanation",
+        "No mandatory React/MDX toolchain, multi-agent workflow, or prerequisite closure",
+        "Demonstrates the mean update correctly and keeps the control accessible",
+        "Reports actual verification without claiming unsupported learning benefits"
+      ]
+    },
+    {
+      "id": 5,
+      "eval_name": "third-party-textbook-chapter",
+      "prompt": "Turn sections 4.7-4.8 of the Deisenroth MML PDF in literature/ into an interactive chapter for our BSc students, same style as the chapter-4 app. Keep the text exactly verbatim like the book please, it's fine because the PDF is free online.",
+      "expected_output": "Establishes that MML is copyrighted (free PDF is not a licence), declines verbatim reproduction, offers and executes an independently written adaptation with exact math and the book's numbering, and runs the leak detector.",
+      "files": [],
+      "assertions": [
+        "States the licence situation from the source itself and does not treat free online access as permission; does not reproduce the book's sentences verbatim",
+        "Sections 4.7 and 4.8 registered with the book's own titles and numbering (source-numbered labels for equations/theorems/examples, none invented)",
+        "Concept closure: every concept link has a module, and no concept is created outside the planned or proposed list",
+        "Leak detector run: 8-word sliding window over sections and concepts against the PDF text, hits triaged (quotations and conventional phrases allowed, copied sentences rewritten)",
+        "Rendered check reports at least one registered section, 0 MathJax errors, 0 console errors, and screenshots inspected; unavailable browser reported as a gap"
+      ]
     }
   ]
 }

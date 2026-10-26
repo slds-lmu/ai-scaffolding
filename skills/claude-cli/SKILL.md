@@ -23,6 +23,10 @@ $HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
   --model sonnet
 ```
 
+Pick the model by the kind of work: `sonnet` for mechanical lookups like the one
+above, `fable` (or `opus`) whenever the answer needs judgment, which is every
+review and second opinion. See `references/cli-patterns.md`.
+
 Large review, background:
 
 Use Codex's long-running `exec_command` session for concurrency, not shell-detached `nohup`.

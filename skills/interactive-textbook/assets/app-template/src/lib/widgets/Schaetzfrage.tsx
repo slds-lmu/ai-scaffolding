@@ -7,17 +7,17 @@
  * die Phase, den Tipp und den Abgleich; das Widget bleibt das Widget.
  *
  * Gegenmuster, das sie ersetzt: ein Absatz über dem Widget, der das Ergebnis
- * schon verrät („ab γ = 2 divergiert die Iteration"). Solche Sätze wandern in
- * die Auflösung.
+ * schon verrät („für f(θ) = θ² divergiert die Iteration, sobald γ > 1"). Solche
+ * Sätze wandern in die Auflösung.
  *
  * ── Beispiel 1: Zahl schätzen, verdeckte Marke erst nach dem Auflösen ────────
  *
  *   <Schaetzfrage
- *     frage={<>Ab welchem γ divergiert die Iteration?</>}
- *     loesung={2}
+ *     frage={<>Ab welchem γ divergiert der Gradientenabstieg auf f(θ) = θ²?</>}
+ *     loesung={1}
  *     toleranz={0.2}
  *     einheit="γ"
- *     verdeckt={<p>Die gestrichelte Linie sitzt jetzt bei γ = 2.</p>}
+ *     verdeckt={<p>Die gestrichelte Linie sitzt jetzt bei γ = 1; rechts davon wächst |θ| in jedem Schritt.</p>}
  *   >
  *     <MeinPlot />
  *   </Schaetzfrage>

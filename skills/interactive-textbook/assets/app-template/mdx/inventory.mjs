@@ -182,13 +182,15 @@ function contentSignature(node, code) {
       out += ` «${name}:${norm(stringChild(n, code))}» `;
       return;
     }
-    if (name === "ConceptLink") {
+    // a ConceptLink WITH href is a reference with a preview: a link for the oracle
+    const isLink = name === "a" || (name === "ConceptLink" && attrValue(el, "href", code) != null);
+    if (name === "ConceptLink" && !isLink) {
       out += ` «Konzept:${stable(attrValue(el, "id", code))}|`;
       walk(n.children);
       out += "» ";
       return;
     }
-    if (name === "a") {
+    if (isLink) {
       out += ` «Link:${stable(attrValue(el, "href", code))}|`;
       walk(n.children);
       out += "» ";
@@ -375,7 +377,7 @@ export function inventoryFromTsx(code) {
           path.skip();
         } else if (name === "EnvBlock") {
           add(path, { kind: "env", envKind: attrValue(el, "kind", code), label: attrValue(el, "label", code) });
-        } else if (name === "ConceptLink") {
+        } else if (name === "ConceptLink" && attrValue(el, "href", code) == null) {
           add(path, { kind: "concept", id: attrValue(el, "id", code), text: contentSignature(path.node.children, code) });
           path.skip();
         } else if (name === "ExpandedReading") {
@@ -422,7 +424,7 @@ export function inventoryFromTsx(code) {
           alt: attrValue(el, "alt", code),
         });
         path.skip();
-      } else if (name === "a") {
+      } else if (name === "a" || name === "ConceptLink") {
           add(path, { kind: "link", href: attrValue(el, "href", code), text: contentSignature(path.node.children, code) });
           path.skip();
         } else if (/^[A-Z]/.test(name) && !SEMANTIC.has(name)) {

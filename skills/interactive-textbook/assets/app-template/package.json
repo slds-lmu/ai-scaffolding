@@ -4,18 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run gen:numbers && vite",
-    "build": "npm run gen:numbers && npm run lint:numbers && tsc --noEmit && node mdx/typecheck.mjs && node mdx/fixtures.test.mjs && npm run test:lib && vite build",
+    "dev": "npm run gen:numbers && npm run gen:definitions && vite",
+    "build": "npm run gen:numbers && npm run gen:definitions && npm run lint:numbers && tsc --noEmit && node mdx/typecheck.mjs && node mdx/fixtures.test.mjs && npm run test:lib && vite build",
     "preview": "vite preview",
     "test:mdx": "node mdx/fixtures.test.mjs",
     "mdx:compare": "node mdx/compare.mjs",
     "typecheck:mdx": "node mdx/typecheck.mjs",
     "gen:numbers": "node scripts/gen-numbers.mjs",
+    "gen:definitions": "node scripts/gen-definitions.mjs",
     "lint:numbers": "node scripts/lint-numbers.mjs",
     "verify:inventory": "node scripts/verify/inventory-snapshot.mjs",
     "verify:numbers": "node scripts/verify/run-all.mjs",
     "test:lib": "node --experimental-strip-types --no-warnings src/lib/widgets/util.test.mjs",
-    "build:agent": "npm run gen:numbers && npm run lint:numbers && tsc --noEmit && node mdx/fixtures.test.mjs && npm run test:lib && vite build"
+    "build:singlefile": "npm run build -- --mode singlefile",
+    "verify:browser": "node scripts/browser-check.mjs"
   },
   "dependencies": {
     "mathjax": "^3.2.2",
@@ -45,5 +47,8 @@
     "@types/mdx": "^2.0.13",
     "@babel/parser": "^7.26.0",
     "@babel/traverse": "^7.26.0"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

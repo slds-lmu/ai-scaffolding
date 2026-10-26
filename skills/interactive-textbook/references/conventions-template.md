@@ -1,110 +1,42 @@
-# CONVENTIONS-template
+# Project conventions for the bundled React/MDX starter
 
-Instantiate as `CONVENTIONS.md` in the app root before launching agents.
-Replace every `{{...}}`. This is the ONE living file every agent must read
-before working; the orchestrator/agents append lessons at the bottom.
+Read this reference when using the starter's authoring syntax. For an existing
+project, use its conventions instead. Do not copy this entire reference into
+every app; the one part every section writer must have is the "Authoring
+syntax (MDX)" section below, because each of its rules marks a form that once
+compiled green while losing content. Instantiate that section as
+`<app-root>/AUTHORING.md` and point writers at it (the workflow template does).
 
----
+## Setup
 
-# CONVENTIONS — interactive {{SOURCE_SHORT}} (READ FULLY BEFORE ANY WORK)
+Copy `assets/app-template/` to the new app, then replace the title/kicker/source
+attribution placeholders in `index.html` and `src/App.tsx`. Add required source
+and license links as JSX links, not escaped HTML inside a string. The starter
+uses English UI defaults; localize visible and accessible labels together.
 
-Living lessons file. Check the **Lessons** section at the bottom before
-starting. Lessons may refine project-specific choices, but they cannot
-override the MDX grammar or verification commands documented here.
+Use Node 22.18+ (type stripping is on by default from that release, and the
+verify scripts import plain `.ts` modules without a flag), install dependencies,
+retain the generated lockfile, and run `npm run build` and
+`npm run verify:numbers` before adding content. `npm run build` emits a normal
+hosted site; `npm run build:singlefile` emits the offline single-HTML variant.
+Both write `dist/`, so the last build you run is the deliverable. MathJax is
+bundled in both. `--mode singlefile` also selects `.env.singlefile` files if
+you add any; the starter has none. The starter does not include a PDF exporter
+or chapter router. `npm run verify:browser` renders a built app headlessly
+(needs Playwright and at least one registered section; see verification.md).
 
-## Mission
+Create only the necessary `src/sections/S*.mdx` files with exported `id` and
+`title`; the registry discovers them automatically. Concepts use
+`src/concepts/<id>.mdx` and `export const title = "…"`. Existing legacy TSX
+concepts are supported; do not register the same ID in both formats.
+Run `npm run gen:numbers` after changing labels.
 
-Interactive-textbook adaptation of {{SOURCE_CITATION}}, {{SECTION_RANGE}}
-(PDF: `{{PDF_PATH}}`). React + TS + tailwind v4 + MathJax, Paradox-style
-nested tooltips, interactive widgets in open "Interactive" boxes, optional material in expandable "Deep dive" blocks.
-
-## Copyright policy (HARD REQUIREMENT)
-
-> When instantiating: keep exactly ONE of the two branches below, delete the
-> other, and record the licence you established plus where you found it
-> ("© SIAM, copyright page p. ii" / "CC BY-SA 4.0, stated at <url>"). A free
-> download is not a licence. If no open licence is documented here, Branch A
-> applies.
-
-### Branch A — copyrighted source
-
-The source is copyrighted. **Do NOT copy the source's prose.** Write an
-independent close paraphrase: same section structure, same order of ideas,
-same level of detail, same notation. Mathematical content is reproduced
-exactly: equations, definitions' mathematical statements, theorem statements
-(re-worded framing text), examples with the same numbers. Keep the source's
-numbering (equations, definitions, examples) so students can cross-reference
-the original — as a LABEL, never as a number typed into a sentence (see
-"Numbers and references" below). Footnote/margin-note content is carried over as paraphrase.
-Figures are never copied as scans — recreate as widgets/SVG (cite: "after
-{{SOURCE_SHORT}} Figure X.Y"). NEVER copy sentences verbatim.
-When source and adaptation share a language, write each paragraph **from your
-own understanding** (read → close the mental "copy buffer" → explain), never
-by editing the source's sentences.
-Verbatim risk hides in short FRAME sentences, not just paragraphs: equation
-lead-ins and list intros tend to get copied 1:1 — reviewers must diff those
-against the PDF too. Widget captions, status texts and verdicts are prose in
-this sense: when porting a widget from another app, take the code and
-rewrite every string from your own understanding.
-The app is internal only. It is never published, and no build artifact is
-shared outside the group.
-
-### Branch B — open-licence source ({{LICENCE}})
-
-The source is licensed {{LICENCE}} ({{LICENCE_URL}}), so this adaptation may
-be published. Obligations every agent must respect:
-
-- **Attribution stays intact.** The app footer names {{SOURCE_CITATION}},
-  links the original and the licence, and states that the text was adapted.
-  Never remove or weaken it, and never present the material as original.
-- **Output licence: {{OUTPUT_LICENCE}}.** Do not introduce material from a
-  differently licensed source into this app.
-- Keep the source's numbering (equations, definitions, examples) so students
-  can cross-reference the original — as a LABEL, never as a number typed into
-  a sentence (see "Numbers and references" below).
-- Verbatim reuse is permitted, but the point of this format is text
-  restructured for hovering and expanding. Paraphrase by default; quote only
-  where the exact original wording is what matters, and mark it as a quote.
-- Figures: recreate as widgets/SVG. A licensed figure may be reproduced with
-  attribution, but a recreated one is interactive and matches the app's look.
-- Mathematics (equations, theorem statements, algorithms, numbers) is
-  reproduced exactly, as in every branch.
-
-## Language
-
-{{LANGUAGE_RULES}}
-(default: everything in English — body, tooltips, readings, widget labels,
-UI, code; math notation exactly as in the source)
-
-## Prose style (enforced by reviewers, measured before sign-off)
-
-Explanatory, plain, unmannered. The specific tics below were reported by real
-readers of earlier builds, so they are checked mechanically, not by taste:
-
-- **Dash budget: at most one dash per ~300 words**, and never two in one
-  sentence. The em dash is the single loudest LLM tell, and unconstrained
-  agents land near one per 70 words (once per paragraph). Reach first for a
-  comma, a colon, a full stop, a parenthesis, or a subordinate clause, and
-  vary which. Only keep the dash where the interruption is the point.
-  In languages that use spaced en dashes (German, French), write ` – `, not
-  `—`. Verify per file: `grep -o '—' file | wc -l` against its word count.
-- **No formula phrases on repeat.** "Exactly this …", "That is precisely
-  why …", "It's not just X, it's Y", three-item lists written by reflex,
-  paragraphs opening with "Importantly:" or "The key point is:". Twice in a
-  chapter is voice; seven times is a tic. Count before you cut.
-- **No throat-clearing.** Say the thing; the sentence "Let's dive in" costs
-  a line and adds nothing.
-- Sentence length varies. Uniform 18-word sentences read like generated text
-  even when every one of them is correct.
-
-Reviewer agents report the dash count per file and the top repeated phrases
-with their frequencies, alongside the math checks.
-
-## Target audience & tooltips
-
-{{AUDIENCE_DESCRIPTION}}
-Exclusion list (concepts that get NO tooltip because the audience knows them):
-{{EXCLUSION_LIST}}
+For a new app, write a short `CONVENTIONS.md` containing project decisions:
+source/scope and reuse permissions; audience and prerequisite boundary;
+language/notation/number formatting; core vs optional material; existing or
+needed canonical concept IDs; output mode; relevant checks; and an errata file
+if needed. Do not invent a large concept list before seeing its uses. Follow
+the user's prose style rather than importing fmm-skript's punctuation quotas.
 
 ## Authoring syntax (MDX)
 
@@ -117,11 +49,12 @@ writes it — single backslashes — and let the compiler do the escaping:
 | `::::proof` / `:::step` / `::why[…]` | `::::beweis` / `:::schritt` / `::why[…]` | `<Proof>` / `<PStep why>` |
 | `::::quiz` / `:::question{true}` or `{false}` | `::::quiz` / `:::frage{wahr}` or `{falsch}` | `<Quiz>` / `<Frage>` (alias `<Question>`) |
 | `:::interactive[Title]` | `:::interaktiv[Title]` | `<Interaktiv>` (alias `<Interactive>`) — the box around a widget, its task and its readout; core material, always open |
-| `:::deepdive[Title]` | `:::vertiefung[Title]` | `<ExpandedReading>` — optional extra material (proofs the lecture only cites, excursions); collapsed; may contain a nested `::::interactive` |
+| `:::deepdive[Title]` | `:::vertiefung[Title]` | `<ExpandedReading>` — optional extra material (proofs the lecture only cites, excursions); collapsed; to nest a widget box, write `::::deepdive` around `:::interactive` (the outer fence is longer) |
 | `::source[…]` | `::quelle[…]` | small grey source line |
 | `:c[text]{#id}` | `:k[text]{#id}` | `<ConceptLink>` |
+| `:d[text]{#slug}`, `:d[text]{id=4.6}` | — | `<ConceptLink id="env:…">`: grey underline, previews the wording of that labelled definition/theorem (see "Definition previews") |
 | `::::proof{no-qed}` | `::::beweis{ohne-qed}` | `<Proof qed={false}>` |
-| `@theorem:4.6`, `@definition:…`, `@lemma:…`, `@corollary:…`, `@example:…`, `@remark:…`, `@algorithm:…` | `@satz:…`, `@korollar:…`, `@beispiel:…`, `@bemerkung:…`, `@algorithmus:…` | a link reading "Theorem 4.6" |
+| `@theorem:4.6`, `@definition:…`, `@lemma:…`, `@corollary:…`, `@example:…`, `@remark:…`, `@algorithm:…` | `@satz:…`, `@korollar:…`, `@beispiel:…`, `@bemerkung:…`, `@algorithmus:…` | a link reading "Theorem 4.6"; for definitions, theorems, lemmas and corollaries it also previews the wording on hover |
 | `@eq:5.107` | — | a link reading "(5.107)" |
 | `@sec:4.3` | — | a link reading "Section 4.3" |
 | `@num:4.6` / `@ref:4.6` | — | the bare number / the number with its kind |
@@ -218,12 +151,22 @@ reports a stray-fence error instead of shipping a damaged proof or quiz.
   and `Note:Text` all fail the build. Write `Statistiker/innen`, `Note: Text`,
   `$3:4$`, or escape the colon as `\:`.
 - Directive flags are bare: `{true}`, not `{true=false}`.
+- An unmatched `[` inside a directive label (`::why[…]`, `:::deepdive[…]`),
+  even inside its math, breaks the directive silently: the whole
+  `::why[…]` is printed as literal text. Write a half-open interval there as
+  `$\lbrack 0, 1)$`.
+- In `{#…}` a dot starts a class, so `:d[term]{#4.6}` means id `4`. A source
+  number needs `{id=4.6}`; the compiler rejects the `#` form.
 
-Errors carry a line number. After editing MDX, run `npm run test:mdx` (and
-`npm run build:agent` before handing over). `npm run typecheck:mdx` is the
-orchestrator's single post-parallel check, see below; plain `tsc --noEmit`
-only sees the `.mdx` import shim and cannot validate the JSX generated from
-an MDX file.
+Errors carry a line number. A writer working in parallel with others has two
+read-only checks for their own file: `node scripts/gen-numbers.mjs --check`
+parses every MDX file without writing anything (a "table is out of date"
+message, or an error inside somebody else's unfinished file, is not the
+writer's problem), and `npm run lint:numbers` finds hand-typed numbers.
+`npm run test:mdx` runs the parser fixtures, not your file. The full build and
+`npm run typecheck:mdx` are the serial checks after writers have stopped, and
+nothing before them is a substitute; plain `tsc --noEmit` only sees the `.mdx`
+import shim and cannot validate the JSX generated from an MDX file.
 
 ### Widgets in MDX
 
@@ -249,19 +192,11 @@ interactive:
   not outside it.
 - `:::deepdive[…]` is for material a reader may skip: a proof the source only
   cites, an appendix excursion, a side note. It is collapsed. A widget inside
-  it needs one more colon (`::::interactive` nested in `:::deepdive`) —
+  it uses a shorter fence (`:::interactive` nested in `::::deepdive`) —
   optional is the material, not the widget.
 
-Using deep dives as the default widget wrapper hides the most central content
-and leaves genuinely optional material unmarked. That is what happened in the
-sibling fmm-skript, where 96 of 99 deep-dive blocks were just widget frames
-and the label carried no signal at all.
-
-Visible text never depends on collapsed text: no `@`-reference from the
-main text, from a widget verdict or from a visible quiz into a deep dive; a
-self-test about deep-dive material goes inside the deep dive. Keep the
-SOURCE's own core/optional distinction: appendix or "uncounted" material
-stays optional here too, it does not become a numbered main-text theorem.
+Keep core material visible. Optional links into a deep dive are allowed when
+navigation opens the target; main-text reasoning must not silently require it.
 
 Companion widgets import these building blocks from `../../lib` (adjust the
 relative path for their location). The library is SVG-based; the code is
@@ -278,16 +213,17 @@ export; `src/lib/index.ts` is authoritative); UI strings default to English and 
   reserve room so labels are not clipped) with `sigmaMax(A)` /
   `maxAbsCoord(...vectors)` to size the view.
 - `useDrag` + `DragHandle`: pointer capture, clamping during drag, grab
-  offset, `touch-action`; pair every handle with a `Slider` on the same
-  state (dual path).
+  offset, `touch-action`; provide keyboard and non-drag pointer operation
+  of the same state (a suitable native control is often sufficient).
 - `Aufgabe`/`Task` (the one-line task), `Verdikt`/`Verdict` (state-classed
   verdict: symbol + colour + `aria-live`), `Schaetzfrage`/`GuessFirst` and
   `SchaetzfrageAuswahl`/`GuessFirstChoice` (predict-then-reveal: number,
   choice, range or click-in-figure),
   `Stepper` (scrubbable, optional play, never autostarts),
   `useAnimatedValue` / `useAnimatedMatrix` (transitions for discrete jumps
-  only), `Surface3D` + `ViewControls` (companion to a 2D contour plot,
-  never the primary view).
+  only), `Surface3D` + `ViewControls` (a 3D view for when depth is the
+  lesson; a 2D contour panel is usually easier to read precisely, so pair
+  them only when the correspondence helps).
 - `util`: `fmtDe` / `fmtEn` / `makeFmt(locale)` (locale formatting that
   separates NaN from ∞),
   `clamp`, `mulberry32`, `useSeed`; `surface.ts`: `W_PANEL`, `W_TEXT`,
@@ -301,7 +237,7 @@ writing a widget; compose these primitives before writing a custom SVG.
 
 ## Numbers and references (HARD RULE)
 
-**Never write a number.** Not "Theorem 4.6", not "(5.107)", not "Section 4.3"
+**Do not hand-type cross-reference numbers.** Not "Theorem 4.6", not "(5.107)", not "Section 4.3"
 — not in prose, not in an environment label you retype, not in a widget's
 TSX. Label the target once, then reference the label; the printed number is
 filled in from `src/sections/numbers.generated.json` at compile time, and a
@@ -317,16 +253,16 @@ A label carries either the SOURCE's number or a slug:
 | environment | `:::theorem[4.6 (Scaling map)]` | `:::example[#scaling-twice]` |
 | equation | `$$ {#eq-5.107}` | `$$ {#eq-two-step}` |
 | sub-heading | `### 4.6.1 Title` | `### Title :id[why-counted]` |
-| section | `export const id = "4.6";` | — (sections always mirror the source) |
+| section | `export const id = "4.6";` | Choose an ID following the project's numbering |
 | no number at all | — | `:::remark[(A convention)]` |
 
 A source number is its own id, so nothing re-derives it and
-{{SOURCE_SHORT}}'s numbering is preserved exactly. A slug is numbered
+the source's numbering is preserved exactly. A slug is numbered
 `<section-id>.<n>` in document order, skipping numbers a source-numbered
 object in the same file already claimed. Slugs are `a-z`, `0-9`, `-`, never
 purely numeric, and unique across the whole app.
 
-Label only what is referenced or might be. An unlabelled `$$…$$` prints no
+Preserve source labels when required; otherwise label what is referenced. An unlabelled `$$…$$` prints no
 number, which is right for most displayed math.
 
 ### Referencing
@@ -352,135 +288,85 @@ num("eq:5.107")                          // "5.107"
 
 An unknown key is a TypeScript error. Never assemble a number as a string.
 
+### Definition previews (`:d`)
+
+A term the text defines itself links to its definition with
+`:d[scaling map]{id=4.6}` (source number) or `:d[KKT conditions]{#kkt}`
+(slug). The target must be a labelled `:::definition`, `:::theorem`,
+`:::lemma` or `:::corollary`; anything else is a build error. Hovering shows
+the environment's exact wording, with a footer link "→ Definition 4.6 in
+Section 4.6"; references to those four kinds (`@definition:4.6`, …) preview
+the same window and still navigate on click. Examples, remarks and algorithms
+stay plain links. `:d` is allowed inside `::why[…]`.
+
+- The windows are generated copies: `npm run gen:definitions`
+  (`scripts/gen-definitions.mjs`, run by `dev`, `build` and the dev server)
+  writes one `src/definitions/<id>.mdx` per environment. Never edit them, and
+  put `src/definitions/` in the app's `.gitignore`. A body with a heading, a
+  nested block, a relative path or `import`/`export` cannot be copied and
+  fails the generator.
+- Use `:d` at the first real mention in a LATER section's prose, not in the
+  defining section, headings, labels or formulas, and not at every mention.
+  `:c` stays the form for prerequisites from outside the text.
+- Link only where the word means exactly the defined concept. If the text
+  uses it more loosely than the definition (e.g. "residual" for something
+  other than the defined residual), write no `:d`: a misleading preview is
+  worse than none.
+
 ### Tooling
 
 - `npm run gen:numbers` after any MDX change; `npm run dev` and
   `npm run build` run it first, and the dev server recomputes the table on
   every save. If a counter shifts, the page does a full reload — that is the
   intended behaviour, not a bug.
-- `npm run lint:numbers` fails the build on a hand-written number. If it
-  flags something legitimate, restructure the sentence rather than silencing
-  it.
+- `npm run lint:numbers` fails the build on a hand-written number. Investigate false positives against the actual syntax; do not distort
+  correct prose merely to satisfy a heuristic.
 - `src/sections/numbers.generated.{json,ts}` are generated. Never edit them.
 - `node scripts/gen-numbers.mjs --check` verifies the checked-in table is
   current (useful in CI).
 
-## Widget & colored-math quality bar (user-tested — real complaints)
+## Operational constraints
 
-A widget that hides information is worse than a static figure. Every widget:
+Use the actual macro definitions in `src/mathjax-setup.ts`; do not guess macro
+meanings. Keep `mjx-container > svg { display: inline }` in the stylesheet.
+Environment labels are plain text (no math or backticks). Section metadata and
+number tables drive anchors; source numbers are explicit IDs and generated
+slug numbers serve added material. Preserve stable aliases when moving content.
 
-- **Axes labeled and never cut off** — leave margin for labels/ticks; if a
-  plot has meaningful axes, name them.
-- **Content stays inside the canvas**: vectors/curves must not poke outside
-  the plotted area. Either clamp the parameter ranges to what fits, or
-  auto-scale the view (e.g. grow `worldHalf` with the largest vector norm).
-- **Print the state being visualized.** A slider that morphs a matrix must
-  SHOW the current matrix numerically (via `<M>` next to the canvas);
-  same for any derived quantities (det, eigenvalues, condition number …).
-  The user should never have to guess what object the picture depicts.
-- **Three mandatory parts**: one task line (`<Aufgabe>`/`<Task>`), the
-  graphic, a state-classed `<Verdikt>`/`<Verdict>` that names the
-  mathematical reason. The prose before the box introduces every quantity
-  the widget uses; the prose inside the box after the widget states the
-  insight in 2–4 sentences (the print export shows only that prose).
-- **Tolerance is not equality.** Verdicts distinguish exactly degenerate
-  (defined by the controlled parameter or a symbolic condition, e.g. the
-  slider on 0 or the singular preset, never by `=== 0` on a derived
-  float), nearly degenerate ("ill-conditioned", never "singular"/"parallel")
-  and regular.
-- **Numbers are verified by a script in `scripts/verify/`** (run by
-  `npm run verify:numbers`), cited by path in the widget header. Never cite
-  a scratchpad; assertions must be able to fail.
-- **Every drag has a slider or number field on the same state** (dual
-  path); no unseeded `Math.random`; SVG with `viewBox` also gets
-  `width`/`height` when it is not the flex item itself (otherwise Chromium
-  can collapse it to ~2 px inside a flex column, and the build stays green).
-- **One verify script per widget**, `scripts/verify/<Widget>.mjs`
-  (auto-discovered by `npm run verify:numbers`), so parallel authors never
-  overwrite each other's checks; it drives every preset and asserts the
-  verdict branch it lands in. A number quoted in more than one place
-  (prose, quiz feedback, verdict) comes from one constant or `num()`.
-- **Color-coding in math must be consistent and complete**: a color denotes
-  the SAME subexpression in every line of a derivation (the orange factor in
-  line n is the orange term of line n+1 after simplification), and once a
-  statement/result uses color-coding, the intermediate steps carry it too —
-  otherwise drop the coloring entirely. Half-applied coloring is worse than
-  none.
+Source-specific facts to record in `CONVENTIONS.md` before writers start:
 
-## Format-independent gotchas from previous full builds
+- **Unnumbered sources.** If the source numbers no equations (some books number
+  nothing outside displayed theorems), say so explicitly and instruct writers
+  to use bare `$$…$$` unless a later reference needs a slug. Without that
+  sentence, writers fabricate plausible-looking equation numbers.
+- **Concepts the chapter itself introduces** are referenced with
+  `@definition:…`/`@sec:…` or `:d[…]` (a preview of the text's own
+  definition), not with `:c` pop-ups; `:c` is for prerequisites from outside
+  the chapter.
+- **Errors in the source** (a slide, a book) are written correctly here, never
+  discussed in the student-facing text ("the lecture is wrong about…") and
+  never reproduced. Record each in the errata file (source, location, finding,
+  what this text does instead) so the author can fix the source upstream.
+- **Bold Greek** is `\boldsymbol{\Sigma}`; MathJax's `\mathbf` does not bold
+  Greek letters. Standard environments (`bmatrix`, `aligned`) and commands
+  (`\operatorname`, `\overset`, `\phantom`) work with single backslashes in MDX.
 
-- For bold Greek, use `\boldsymbol{\Sigma}` rather than
-  `\mathbf{\Sigma}`. MathJax does not bold Greek with `\mathbf`.
-- Multi-line numbered equations belong in one numbered `$$` block with
-  `\begin{aligned}...\end{aligned}`. Standard TeX environments such as
-  `vmatrix` and `bmatrix`, and commands such as `\operatorname`, `\overset`,
-  and `\phantom`, work with single backslashes in MDX.
-- Section modules are `src/sections/S*.mdx`. The registry discovers them
-  automatically; agents edit only their assigned section and companion
-  widgets, not `src/sections/index.ts`.
-- Read the source PDF pages with the Read tool (`pages` parameter) — do NOT
-  pdftotext math (it mangles it); transcribe equations from the rendered
-  page images.
-- Concept ids: kebab-case ({{ID_LANGUAGE}}). File name = id:
-  `src/concepts/<id>.mdx`. Before inventing an id, list `src/concepts/` and
-  use the canonical list below so sibling agents converge on one spelling.
-  The MDX typecheck rejects an id duplicated across `.mdx` and legacy `.tsx`.
-- Concepts the converted chapter itself introduces get NO tooltip —
-  cross-reference the section instead: `@sec:4.2`. Concept modules carry no
-  numbers of their own and should stay reference-free so they can be copied
-  forward to the next chapter.
-- **Git: NEVER run git stash / checkout / reset / commit. No git commands at
-  all.** Undo your own mistakes by editing files.
-- **`npm run typecheck:mdx` is not parallel-safe** (it compiles every MDX
-  file to a temp `.mdx-check.tsx` inside `src/`, which sibling agents' runs
-  then pick up and which may vanish mid-run: `ENOENT`). Section agents run
-  `npm run test:mdx` and the build's other checks; the orchestrator runs
-  `typecheck:mdx` once after all agents finish.
-- **Environment labels are plain text**: no `$…$`, no backticks in
-  `:::theorem[…]` labels, because the failure message names no file.
-- **Errors in the source** (a slide, a book) are written correctly here,
-  never discussed ("the lecture is wrong about…") and never reproduced.
-  Record them in `{{ERRATA_FILE}}` (one line: source, location, finding,
-  what this text does instead) so the author can review the correction and
-  fix the source upstream.
-- Worked references: `src/sections/_demo.mdx`, its companion widget, and
-  `src/concepts/_demo-concept.mdx`.
+The project may choose a proof/stepper default. The starter initially shows
+the first proof step and offers the full proof; this is a configurable teaching
+choice, not evidence that all readers learn better by clicking through proofs.
 
-## Canonical concept ids (use exactly these when the concept comes up)
+Widget implementation guidance is in `src/lib/widgets/README-widgets.md` and
+`__examples__.tsx`; available exports in `src/lib/index.ts` are authoritative.
+Read only the component code needed for the task. The explorable-widgets skill,
+when available, provides design guidance. At minimum: informative labels and
+initial state, accessible controls, coherent numerical/visual state, correct
+assumptions and boundaries, and concise interpretation. No required widget,
+preset, verdict, prediction, or quiz counts.
 
-{{CANONICAL_CONCEPT_IDS}}
-
-## Section files
-
-Each `src/sections/S*.mdx` file exports its section metadata and then contains
-the body. The registry discovers the file and wraps its default MDX component
-with the page adapter:
-
-```mdx
-export const id = "4.1";
-export const title = "Determinant and Trace";
-
-Placeholder sentence for the assigned writer to replace.
-```
-
-`id` is the SOURCE's section number; it is also the anchor `#sec-4.1` and the
-target of `@sec:4.1`, and the counter uses it as the prefix for every number
-it assigns inside the file. An optional `export const key = "determinant";`
-adds a second anchor `#sec-determinant` and lets `@sec:determinant` survive a
-renumbering — worth it only for sections you expect to move.
-
-Use numbered Markdown headings such as `### 4.1.1 Geometric meaning` for
-subsections. Put stateful or visually complex helpers in
-`src/sections/widgets/`, then import them into the MDX file.
-
-## Reports (section agents)
-
-Return JSON matching the workflow's SECTION_SCHEMA: `{ sectionId,
-prereqConcepts: [{id, name, context}], notes }` — `prereqConcepts` = every
-concept you linked with `:c` / `:k` that has neither a `.mdx` nor legacy
-`.tsx` module in `src/concepts/`. Lessons for later agents go into the Lessons
-section below (append), not into the report.
-
-## Lessons (append one-liners here; newest last)
-
-- (none yet)
+Run shared generators, MDX typechecking, and full builds serially after writers
+stop. Parallel section writers own disjoint section/widget files; one integrator
+owns registries, generated files, shared components, and shared documentation.
+The MDX checker writes temporary `.*.mdx-check.tsx` files under src; do not run
+multiple instances or delete their files while one is active. A component or
+parser change needs its relevant tests and rendered verification, even if the
+library passed a historical review.

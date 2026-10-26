@@ -1,22 +1,23 @@
 # Widget building blocks (`src/lib/widgets/`) — quick guide
 
 Everything is imported from `src/lib`: `import { Verdikt, useDrag } from "../../lib";`
-Component names are German (the lib is shared byte-for-byte with the FMM-Skript);
+Component names are German (the lib originated in FMM-Skript; copies may differ);
 `src/lib/index.ts` adds English aliases: `Verdict`, `Task`, `GuessFirst`,
 `GuessFirstChoice`, `NumericQuestion`, `Question`, `Interactive`. Default UI
 labels are English; pass `labels={…}` (or the `*LabelsProvider`s) to localise.
 Typed examples to copy from: `__examples__.tsx` (imported nowhere).
 
-## The three mandatory parts of every widget
+## Optional task and feedback helpers
 
 ```tsx
 <Task>Drag x onto the antidiagonal.</Task>            {/* ONE line */}
 <svg viewBox={…} className="max-w-full h-auto" {...drag.svgProps}> … </svg>
-<Verdict kind="fail">Here (12.3) fails: f is not convex.</Verdict>
+<Verdict kind="fail">This pair violates the convexity inequality.</Verdict>
 ```
 
-No further prose inside the widget: motivation goes in the paragraph before,
-the resolution in the paragraph after (spoiler split). `kind`: `neutral | ok |
+Use these helpers when the task and changing result need explanation. A static
+annotation or invariant statement may suffice; avoid repeating the same prose.
+For an optional prediction, keep its resolution behind reveal. `kind`: `neutral | ok |
 warn | fail`; each kind carries a symbol (→ ✓ ! ✗), never colour alone.
 
 ## Dragging (`useDrag`, `DragHandle`)
@@ -39,8 +40,9 @@ touch-action). If the whole area is the handle (click places a point), add
 `{...drag.surfaceProps("p")}` to the `<svg>` as well. Custom mapping instead
 of `feld/welt`: `toWorld: (cx, cy, svg) => …` or `svgWorldMapper(svg, feld, welt)`.
 
-**Dual-path rule (hard):** every draggable object also needs a `<Slider>` or a
-number field on the same state. No drag-only widgets.
+Provide keyboard access and a non-drag pointer alternative for each drag.
+A native input, click-to-position, or increment buttons may provide the needed
+paths on the same state; keyboard access alone is not a pointer alternative.
 
 ## Steps (`Stepper`) and transitions (`useAnimatedValue`)
 
@@ -53,8 +55,7 @@ jumps (preset changes); no rAF runs while idle.
 ## Guess first, then reveal (`GuessFirst` = `Schaetzfrage`)
 
 ```tsx
-<GuessFirst frage="At which γ does it diverge?" loesung={2} toleranz={0.2}
-            einheit="γ" fmt={fmtEn} verdeckt={<Marker />}>
+<GuessFirst frage="What is the mean of 1 and 3?" loesung={2} toleranz={0.01} fmt={fmtEn} verdeckt={<Marker />}>
   <MyWidget />
 </GuessFirst>
 ```
@@ -77,9 +78,9 @@ DOM controls use the class chains from `surface.ts` (`W_PANEL`, `W_TEXT`,
 
 ## Surfaces in space (`Surface3D`, `ViewControls`)
 
-Rule: the 2D contour panel remains the primary, fully readable figure; the 3D
-surface sits **next to it** and shows the same point, arrow, curve. All numbers
-stay in the 2D panel's verdict; the 3D panel claims nothing of its own.
+Use 3D when depth matters to the lesson. A 2D contour view is often easier to
+read precisely; combine the views only when their correspondence helps.
+Do not add a second panel merely to satisfy this example.
 
 ```tsx
 const [view, setView] = useState<Sicht3D>({ azimuth: 38, elevation: 26 });

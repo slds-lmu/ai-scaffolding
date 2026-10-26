@@ -431,6 +431,14 @@ to see. Also: **cm4 cores are slower per-thread than serial** (measured: same
 single-threaded R rep runs materially slower on cm4), so more cores help only via
 parallelism, not per-rep speed.
 
+**Rebalancing your own jobs between arrays (users cannot `scontrol top`).** To let one array
+start first, raise the others' nice by a lot: `scontrol --clusters=serial update JobId=<id>
+Nice=10000000` (priorities are ~1e9, so Nice=500 does nothing; verify with `squeue -o '%i %Q'`).
+Cap an array's concurrency without cancelling via `scontrol ... update JobId=<id>
+ArrayTaskThrottle=20`. With lock-dir task claiming, workers killed at the walltime leave
+claimed-but-unfinished tasks: after the array ends, delete locks without a result file and run
+a small cleanup array.
+
 **Don't churn-resubmit a fairshare-gated job to make it start sooner** — cancelling and
 resubmitting *resets its queue age/priority*, so it goes to the back. If your jobs sit
 on `Priority` despite idle nodes, your fairshare is just depleted (heavy recent use);
@@ -444,3 +452,25 @@ let the queue work rather than resubmitting, which makes it worse.
 4. **ALWAYS use `--export=NONE`** in SLURM scripts.
 5. **ALWAYS create output directories** before submitting jobs.
 6. **ALWAYS specify `--clusters=`** in SLURM commands — CoolMUC-4 uses `cm4` or `serial`.
+
+## GPUs: LRZ AI Systems (NOT CoolMUC-4)
+
+CoolMUC-4 (`cm4`, `serial`, `inter`) has **no GPU partitions** (`sinfo --clusters=all` shows GRES `(null)`).
+GPUs live on the separate **LRZ AI Systems**: host `login.ai.lrz.de`, own SLURM (no `--clusters`), needs
+eduVPN/MWN. Same `ri68suz2` account; also the backend of the RStudio server at login.ai.lrz.de. Tested 2026-10-06.
+
+- **Login**: password only (no key set up), so BatchMode fails. Accept the host key once in a REAL terminal
+  (`!` shell has no TTY). Then user opens a master: `ssh -M -S ~/.ssh/cm-ai -o ControlPersist=4h -fN ri68suz2@login.ai.lrz.de`;
+  Claude uses `ssh -S ~/.ssh/cm-ai ri68suz2@login.ai.lrz.de "..."` and `scp -o ControlPath=$HOME/.ssh/cm-ai`.
+- **Partitions**: `sinfo -o '%P %G %D %t %C'`. `lrz-*` (v100x2, dgx-1-v100x8, hgx-a100-80x4, hgx-h100-94x4, ...)
+  work; `mcml-*` need `--qos=mcml`, which this account lacks (`sacctmgr`: QoS `cpu,gpu,mig`; dry-run
+  `sbatch --test-only --qos=mcml` -> "Invalid qos specification").
+- **Pick by idle CPUs** (`%C`), not by GPU generation: H100 partition was `Priority`-pending with estimated start
+  ~14 h later, `lrz-v100x2` pending on `Resources`, `lrz-dgx-1-v100x8` (idle) started immediately. `squeue --me --start`.
+- **Script**: `#SBATCH -p <part>`, `--gres=gpu:1`, `--cpus-per-task=8`, `--mem=64G`, `--time`; no `--export=NONE`/modules needed.
+  Software via containers: `srun --container-image='nvcr.io#nvidia/pytorch:24.01-py3' python x.py` (pyxis; note `#` not `/`
+  after the registry). Verified: V100 visible, `torch.cuda.is_available()` True, 2m46s incl. import.
+- **OOM gotcha**: first import of a big image builds a squashfs in RAM; `--mem=16G` got OOM-killed
+  (`enroot-mksquashovlfs Killed`, step `OUT_OF_ME+`) while `nvidia-smi` in the same job worked. Use `--mem=64G`.
+- Job logs land in the submit dir (`-o gputest.%j.out`); watchers on a cancelled job exit 1 (expected).
+- Untested: R-on-GPU containers (e.g. rocker/ml), multi-GPU, `salloc` interactive.

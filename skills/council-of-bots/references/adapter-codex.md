@@ -21,6 +21,10 @@ If the context references files on disk, add one or more:
 
 so the Claude CLI leg can read those files.
 
+The Claude CLI leg runs on `fable` by default (the launcher's `CLAUDE_MODEL`
+default); pass `--claude-model opus` or set `COUNCIL_CLAUDE_MODEL` if that tier is
+not available to the account.
+
 ## Background Pattern
 
 From Codex, the reliable concurrent pattern is:

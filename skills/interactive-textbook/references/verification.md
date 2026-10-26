@@ -1,218 +1,159 @@
-# Verification (run after the workflow completes)
+# Verification
 
-Two layers: the workflow's integration agent already guarantees TypeScript,
-the MDX typecheck, `vite build`, and concept closure. This file covers what
-that agent cannot do: seeing the app.
+Choose checks by what changed. An agent's report is evidence to inspect, not
+a guarantee. Record the revision, scope, commands, outcomes, and anything not
+run. Do not force a complete textbook audit for a local prose edit.
 
-## 1. Serve the built app
+## Template gates
 
-```bash
-cd <app-root> && npm run build
-# pick a FREE port first — a leftover preview server from an earlier build
-# will happily serve the WRONG app and your checks will "pass" convincingly
-# (this has happened twice):
-ss -tln | grep <port> || npx vite preview --port <port> --strictPort  # via run_in_background
-```
-
-**Identity assertion before anything else**: `curl -s localhost:<port> |
-grep '<title>'` must show THIS app's title. In the Playwright script, assert
-the expected `<title>` and that `section[id^=sec-]` ids match the sections
-you actually built — only then trust any counts.
-
-## 2. Playwright functional + visual check
-
-Playwright needs a venv on PEP-668 systems (Ubuntu 24.04+/Mint 22+):
+The template's `npm run build` runs numbering generation/lint, TypeScript,
+MDX typechecking, parser fixtures, library tests, and the Vite build.
+`npm run verify:numbers` adds the committed numerical and macro checks.
+After editing MDX, check the generated number table before delivery:
 
 ```bash
-python3 -m venv <scratch>/venv
-<scratch>/venv/bin/pip install playwright --quiet
-<scratch>/venv/bin/python -m playwright install chromium
+npm run build
+npm run verify:numbers
+node scripts/gen-numbers.mjs --check
 ```
 
-Script skeleton (headless chromium, viewport ~1400×900). Wait
-`networkidle` + ~4 s for MathJax before asserting. Check, in order:
+Both build modes write `dist/`, so the last build you run is the deliverable:
+finish with `npm run build:singlefile` when delivering offline HTML and test
+that output with networking disabled (a normal hosted build is not
+double-clickable merely because MathJax is bundled); finish with
+`npm run build` for a hosted site. Commit the instantiated app's lockfile and
+use its supported Node version; do not upgrade dependencies as a side effect
+of editing prose.
 
-1. **MathJax health**: `mjx-container` count > 0 AND zero errors. CAUTION:
-   with SVG output, errors are NOT `mjx-merror` elements — count BOTH
-   selectors: `mjx-merror, [data-mml-node="merror"]`, and print
-   `data-mjx-error` attributes (they pinpoint the broken TeX string).
-   Checking only `mjx-merror` silently passes broken math.
-   **Second trap: an undefined macro is not an error at all.** The
-   `noundefined` package of `input/tex-full` typesets `\cbblue` as red
-   literal text in an `mtext`, no merror anywhere. A widget coloured its
-   only content with a macro that did not exist and passed every gate for
-   months. Scan for it: collect every `\name` used in `src/**` (exclude
-   `.mdx-check.tsx` temp files, where `\n` escapes look like macros, and
-   skip delimiter macros such as `\left`/`\Big` which false-alarm with dummy
-   arguments), typeset each headlessly (mathjax `node-main.js`,
-   `input/tex-full` + the project's macro set) and fail if the macro name
-   comes back as literal text (with SVG output there are no text nodes:
-   decode the `data-c` glyph codes of the emitted `<mtext>`). The template
-   ships this as `scripts/verify/scan-macros.mjs` (part of
-   `npm run verify:numbers`, reads `texMacros` from `src/mathjax-setup.ts`);
-   if a project changed its macro setup, point the scanner at the new
-   export.
-   **Layout health at two widths** (~390 px and ~1300 px), in the same
-   script: fail if any `svg` has a rendered width < 40 px (viewBox-only
-   SVGs collapse inside flex columns), if any element is wider than the
-   viewport (tooltip panels with `max-w-md`, tables), if an open tooltip's
-   bounding box leaves the viewport, or if a deep-dive body is visible
-   before its button was clicked. Then eyeball the screenshots for clipped
-   tick labels and legends over data. Type checks and the MDX oracle cannot
-   see any of these.
-2. **Structure**: counts of `[data-concept-link]` (concept links),
-   `[data-deep-label]` (accordions; do not match on the label text, a
-   project may localize it), `section[id^=sec-]`.
-3. **Window chain**: hover a body concept link → expect 1 `[data-tt-key]`
-   after ~400 ms; move the pointer INTO it and wait ~700 ms → still 1 (it
-   must survive the pointer entering it); hover a `[data-concept-link]`
-   inside it → 2; repeat for a 3rd level. Screenshot each stage.
-4. **Pin, drag, teardown**: click a concept link → expect
-   `[data-tt-pinned="true"]`; `page.mouse.wheel(0, 700)` → the pinned window
-   is still there (only previews die on scroll); drag its title bar by
-   (160, 90) and check the bounding box moved by that much; click far away →
-   pinned survives; Escape → 0 windows. Also check the two regressions this
-   engine was built to kill: an 80 ms hover followed by moving away leaves 0
-   windows after 900 ms, and a pointer that comes to rest in the gap between
-   link and window (then does not move at all) leaves 0 windows after 1.5 s.
-5. **Deep dive**: click the first accordion button, screenshot the opened
-   widget.
-6. **Console**: collect `console.error` messages; expect none.
+Shared generators and builds mutate output files. Run them serially after
+writers have stopped. In particular, `typecheck:mdx` creates temporary TSX
+beside MDX and concurrent runs can interfere. Remove stale checker files only
+when no check is running, then retry once for that identified cause.
 
-Read the screenshots with the Read tool and actually look at them: math
-typeset (no raw `\frac`), tooltips positioned near their links, widgets
-drawn (not blank canvases), no double "Deep dive: Deep dive:" labels.
-Looking is one half; the other half is a source audit of the same widgets
-(headers, verify scripts, verdict branches); the two passes catch disjoint
-defect classes, and the denominator ("all N widgets checked") is counted
-from `ls src/**/widgets`, not from what was on screen.
-Also inspect widget quality (real user complaints from the pilot):
-axes labeled and not cut off, vectors/curves fully inside the canvas,
-the visualized object's numeric state printed next to its sliders, and
-color-coded equations using each color for the same subexpression in every
-line (no half-applied coloring in derivations).
+## Mathematics and source fidelity
 
-## 3. Known cosmetic traps to grep for
+Check changed statements against the actual source and local notation. For
+math-heavy PDFs, inspect rendered pages; text extraction is useful for finding
+content but can corrupt notation. Prioritize assumptions, signs, dimensions,
+regime boundaries, and claims changed by adaptation. Match source numbering
+when preserving it; do not invent equation tags to meet a quota.
 
-- `rg -n ':::(deepdive|vertiefung)\[Deep dive:?|<ExpandedReading[^>]*title="Deep dive' src/sections src/concepts`
-  finds titles that repeat the prefix the component already adds; strip the
-  prefix from the directive label. The JSX branch covers legacy modules.
-- Extract concept ids from both MDX directives and legacy JSX with
-  `rg -o --no-filename ':[kc]\[[^]]*\]\{#[A-Za-z0-9._-]+\}|<ConceptLink[[:space:]][^>]*id="[^"]+"' src`.
-  Normalize the text after `#` or inside `id="…"`, sort uniquely, and compare
-  it with both `src/concepts/<id>.mdx` and `<id>.tsx`. This should already be
-  closed by integration, but it is a quick independent check.
+Exercise nontrivial widget calculations and classifiers against independent
+known values or invariants. Tests should import production functions where
+feasible. A script that independently recalculates an example may check the
+prose, but does not check the widget's implementation. Missing test evidence
+and demonstrated incorrect mathematics are different findings.
 
-## 3a. Structural greps (cheap, run every time; first pass, not proof)
+## Browser checks
 
-These greps are deliberately simple and miss escaped labels, links built in
-TSX expressions and unusual syntax. Treat an empty result as "nothing
-obvious", and use the MDX inventory (`mdx/inventory.mjs`) when a project
-needs an authoritative list.
+The template ships the mechanical part as `npm run verify:browser`
+(`scripts/browser-check.mjs`). Run it on the deliverable: `dist/index.html`
+after `build:singlefile` (opened via `file://` with every request other than
+that one document aborted, so a build that still reaches for the network or
+for sibling files fails), or a served hosted build by URL. It needs Playwright
+(resolved from the app, `PLAYWRIGHT_MODULE_PATH`, or the global npm root;
+`--executable` points at a Chromium binary) and **at least one registered
+section**: the bare starter registers none, because `_demo.mdx` does not match
+the `S*.mdx` glob, so a check on the bare starter proves nothing. To
+smoke-test the starter itself, *move* `_demo.mdx` to `S46.mdx` for the run
+(copying it fails: the numbering scan sees the underscore file too and reports
+id 4.6 twice). Do that on a copy outside `~/.claude` (e.g. the scratchpad):
+the template lives in the auto-synced config repo, whose 5-minute sync commits
+a temporary rename. Exit 2 means no browser runtime was available; report that as a
+rendering gap, never as a pass.
 
-- **Orphan concepts**: every `src/concepts/<id>.mdx` must be linked from at
-  least one section or concept (`rg -l ':[kc]\[[^]]*\]\{#<id>\}'`). An
-  orphan is unreviewed by construction; delete or link it.
-- **Near-duplicate concept ids**: sort ids, eyeball adjacent pairs and
-  hyphen permutations (`matrix-inverse` / `inverse-matrix`); merge into the
-  id with more inbound links.
-- **Visible → collapsed dependencies**: for every `@`-reference and quiz
-  outside a `:::deepdive`/`:::vertiefung` block, check the target is not
-  inside one (a numbering table with block membership makes this a
-  one-liner; otherwise a small remark walk). Also grep widget TSX for
-  `ref("…")` keys whose targets sit in a deep dive.
-- **Verify-script provenance**: every widget header that cites a check
-  script must cite a path that exists under `scripts/verify/`; `npm run
-  verify:numbers` must be green.
-- **Style budget** (if CONVENTIONS sets one): dash count per file vs word
-  count, `&mdash;` entities included; a plain `grep '—'` misses them.
+What the script checks, so a hand-run in another harness can reproduce it:
 
-## 3b. Numbering gate
+- Identity first: the expected section anchor `#sec-<id>` is on the page, and
+  for a URL target the served document references the same `assets/` files as
+  the local `dist/index.html` (a single-file build served by URL must be
+  identical to it). A stale localhost server otherwise gives convincing
+  results for the wrong revision; when serving, pick a free port.
+- Math readiness before any assertion: `MathJax.startup.promise` when the
+  global is exposed, otherwise wait until the `mjx-container` count stops
+  changing. Then at least one formula when the section source contains math
+  outside code spans (a text-only section is legitimate; `--section` with no
+  matching file expects math) and zero
+  `mjx-merror, [data-mml-node="merror"]`.
+  Undefined macros typeset as literal text with no error node, so
+  `scripts/verify/scan-macros.mjs` stays a separate check; look at the
+  visible formulas too.
+- Console errors (a missing favicon is not one), failed requests, and (file
+  target) any request other than the document itself.
+- Layout at 390 px and 1300 px: nothing wider than the viewport (MathJax
+  internals excluded), no horizontal scroll, and no plot SVG (an `svg` with a
+  `viewBox` at least 100 units wide, outside `mjx-container`) rendered narrower
+  than 40 px, which is what a viewBox-only SVG collapses to in a flex column.
+  Icons and math glyphs are legitimately small and are not counted, nor are
+  plots inside a collapsed deep dive, which are not rendered until opened.
+- Concept windows (selectors `[data-concept-link]`, `[data-tt-key]`,
+  `[data-tt-pinned="true"]`): hover opens one preview after the 120 ms dwell;
+  moving the pointer into it keeps it; a link inside it opens a second window;
+  a pointer that comes to rest in the corridor between link and window (on
+  the segment joining their centres) closes the preview within 1.5 s; a hover
+  shorter than the dwell followed by leaving
+  opens nothing (0 windows after 900 ms); click pins; a pinned window survives
+  wheel scroll and click-away, moves when dragged by its title bar, and Escape
+  closes it. The two timing checks are the failure modes (1) and (2) recorded
+  at the top of `src/lib/tooltip/TooltipEngine.tsx`.
+- Fragment links: a `#sec-` link lands with the heading at the top, not
+  mid-section; scrolling right after the jump is not undone; a link to an id
+  inside a collapsed deep dive opens it (the demo carries `#eq-guess-length`
+  for this). Both regressions shipped once in fmm-skript.
+- Deep dives (`[data-deep]`, `[data-deep-label]`): the body is hidden before
+  the button is clicked and shown after.
 
-```bash
-npm run gen:numbers && npm run lint:numbers && node scripts/gen-numbers.mjs --check
-```
+The script cannot judge what it draws. Look at the screenshots it writes
+(initial state at both widths, an open preview, a pinned window, an opened deep
+dive): math typeset rather than raw TeX, windows next to their links, widgets
+drawn rather than blank, no "Deep dive: Deep dive:" double labels. For changed
+widgets also exercise defaults, boundaries, invalid input, reset, and the
+important regimes by hand, with keyboard focus and a non-drag pointer path. If
+predictions exist, check that reveal works and the pre-reveal view does not
+spoil the result. Check links into collapsed content and across lazy chapter
+routes. Requested print/export output needs its own inspection; the starter
+does not supply fmm-skript's PDF pipeline. For broad audits, inventory the
+source tree and report the subset actually inspected.
 
-All three must be clean: no hand-written number anywhere in `src/sections`
-or `src/concepts`, and the committed `numbers.generated.*` current. Then
-spot-check the rendered page: click one `@theorem:` and one `@eq:` link and
-confirm it jumps to the right block, and compare three numbers against the
-source PDF — an equation the source numbers must still print the source's
-number, not a counted one. If a printed number disagrees with the PDF, the
-label was mistyped, not the counter.
+## Structural changes and migrations
 
-When the authoring toolchain itself changed (a remark upgrade, a plugin
-edit), record an oracle first and compare afterwards:
+Check orphan concepts, synonyms, duplicate derivations, and hidden core content
+when restructuring a chapter. Account for glossary/search/route entry points
+before calling an unlinked concept unused. Resolve missing concept links by
+reusing a canonical explanation, adding reviewed necessary content, or
+removing an unnecessary link; do not silently generate filler stubs.
 
-```bash
-git worktree add /tmp/ref <pre-change-commit>
-node scripts/verify/inventory-snapshot.mjs --write /tmp/ref.json --root /tmp/ref
-node scripts/verify/inventory-snapshot.mjs --compare /tmp/ref.json
-```
+For a length review, classify every block against the source as CORE (in the
+source or lecture), BRIDGE (needed to read the core) or EXTRA (beyond it), with
+word counts, and compare the total with what the course can carry; agents
+promote appendix material into numbered main-text results and write the same
+summary three times, so keep the source's own core/optional distinction. When
+two concept ids mean the same thing, keep the one with more inbound links and
+migrate the rest, but check stable anchors and navigation entries before
+deleting either. Fix rounds inflate (a caveat lands in prose, task line,
+verdict and closing at once): take a word-count baseline before the round
+(`git show HEAD:<file> | wc -w`) and run a shortening pass after it.
 
-Only whitelist an expected class of difference (`--allow link-wrap`,
-`--allow heading-id`, `--allow eq-math`), never an individual entry.
+When changing the MDX compiler, run its fixtures and compare the ordered
+semantic inventory (`mdx/inventory.mjs`) against the previous revision.
+`mdx/compare.mjs old.tsx new.mdx` supports section-format migrations. For a
+corpus snapshot use `scripts/verify/inventory-snapshot.mjs` with `--write`
+and `--compare`; inspect every intentional difference. Inventories detect
+many losses but cannot prove arbitrary React equivalence. Do not replace
+semantic comparison with an `innerText` snapshot of lazily rendered content.
 
-## 4. Verbatim sweep (copyright — mandatory, exhaustive)
-
-Do NOT sample sentences — run an exhaustive sliding-window scan; it costs
-the same and has twice caught leaks the per-section reviewers missed:
-
-1. Extract all authored prose from `src/sections/**` AND `src/concepts/**`
-   (tooltip prose is where leaks hide — no reviewer covers it).
-2. Normalize both sides (lowercase, collapse non-alphanumerics to spaces).
-3. Slide an 8-word window (step 2–4 words) over the app prose; flag every
-   window that occurs verbatim in the `pdftotext` extraction of the source
-   pages.
-4. Expect ZERO hits; rewrite any hit in fresh words, then re-run the MDX
-   typecheck, the build, and the scan.
-
-Frame sentences (equation lead-ins, list intros, figure captions) are the
-usual culprits.
-
-## 4b. MDX gate (only when converting an existing TSX section)
-
-`node mdx/compare.mjs old.tsx new.mdx` compares an ordered semantic
-inventory of both files — every TeX string, environment kind and label,
-concept id, heading, equation tag, quiz truth value, widget prop, plus
-prose — and fails on any difference in content, order or nesting.
-
-Do not reach for a rendered-text diff instead. `innerText` is
-layout-dependent and the sections carry `content-visibility: auto`, so
-skipped subtrees contribute nothing to it: such a check silently compares
-only what happens to be on screen. Use `textContent` if you write your own.
-
-Expect the gate to report the deliberate changes and require a human to sign
-each off. It is not meant to reach zero automatically. The recurring ones:
-
-- **Extracted widgets.** Preformatted text with inline formatting, SVG and
-  anything stateful must move into a companion `.tsx`; the gate sees text
-  becoming a widget entry. Check the widget renders the same thing.
-- **Unnumbered headings lose their id.** Ids come from the heading's number
-  or from `:id[slug]`, so a hand-written `id="sec-2.5-quiz"` disappears. Before signing off,
-  grep the whole app for inbound links to that id — if any exist, keep the
-  anchor by numbering the heading or adding an explicit anchor element.
-- **Quiz widget → directives.** The old hoisted `QUIZ` array plus
-  `<QuizWidget/>` becomes `::::quiz`; the gate normalises the questions but
-  reports the widget entry as gone.
-
-Known blind spots, so you do not over-trust it: it inventories the component's
-main returned tree, so a second `return` behind an early `if` is not compared;
-and it models the components it knows plus links, images and prose — it does
-not compare arbitrary HTML attributes or inline emphasis structure. It is a
-loss detector, not a proof of equivalence.
-
-## 5. Report to the user
-
-Include: sections built, tooltip/widget counts, chain-depth demo screenshot,
-build size, open cosmetic issues, and the distribution status that follows
-from the licence branch in CONVENTIONS.md: under Branch A the standing
-reminder that the app must stay private (paraphrase adaptation of
-copyrighted material, internal teaching use only); under Branch B a check
-that the footer really carries the attribution, the source and licence links,
-the "adapted" note, and the output licence.
-
-The verbatim scan (§4) also changes with the branch: under Branch B verbatim
-overlap is permitted, so report hits as *style* findings (text that was
-copied rather than restructured for this format) instead of as violations,
-and check that anything deliberately quoted is marked as a quote.
+For reused prose/assets, verify attribution and the applicable permissions.
+For an adaptation of a third-party copyrighted source, run the leak detector
+before delivery: extract all authored prose from `src/sections/**` and
+`src/concepts/**` (pop-up prose is where leaks hide), normalize both sides
+(lowercase, non-alphanumerics to spaces), slide an 8-word window over the
+app prose and flag every window that occurs verbatim in the `pdftotext`
+extraction of the source pages. It is exhaustive because it costs the same as
+sampling and has caught leaks that per-section reviewers missed; frame
+sentences (equation lead-ins, list intros, captions) are the usual culprits.
+Triage the hits rather than treating the count as a gate: a marked quotation,
+a conventional phrase ("let A be an n by n matrix"), or licensed and
+user-owned text is fine; a copied sentence is rewritten in fresh words, then
+the typecheck, build and scan are re-run. The scan locates passages; it is not
+a permission test, and a clean scan does not by itself make an adaptation
+publishable.

@@ -59,7 +59,7 @@ mse <- mean((theta_hat - theta_true)^2)
 
 **Monte Carlo SE**:
 ```r
-mc_se_mse <- sqrt(sum((theta_hat - theta_true)^2 - mse)^2 / (n_sim * (n_sim - 1)))
+mc_se_mse <- sqrt(sum(((theta_hat - theta_true)^2 - mse)^2) / (n_sim * (n_sim - 1)))
 ```
 
 ---

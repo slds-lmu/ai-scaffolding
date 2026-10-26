@@ -91,10 +91,27 @@ If no lessons pass the bar, say so — an empty result is fine.
 **Global** (`~/.claude/CLAUDE.md`, `~/.claude/skills/`):
 - Read the target file first.
 - Add concisely in the most natural location.
+- Route by who needs to see it. `CLAUDE.md` is loaded into *every* session, so
+  it should hold only lessons that apply regardless of task (git safety, shell
+  gotchas, tool quirks). A lesson that only matters when doing X belongs in the
+  skill for X: a simulation-study lesson goes into `setup-benchmark`'s
+  references, a pkgdown gotcha into `r-package-coding`, and so on. CLAUDE.md has
+  drifted toward being a catch-all; moving domain lessons into skills is a
+  legitimate outcome of this step.
+- Keep `CLAUDE.md` short — it was cut from 41 KB to ~9 KB in 2026-09 because
+  every byte is paid in every session. An entry there is a rule of at most 2–3
+  lines: no anecdotes, measurements, or dates (the story of how the lesson was
+  learned goes with the detailed version in the skill or a memory file; CLAUDE.md
+  gets at most a one-line pointer). Domain skills to route to include
+  `quarto-latex-gotchas`, `agent-orchestration`, `setup-benchmark`, `r-scripting`,
+  `r-package-coding`, `cran-submission`, `codex`. Check `wc -c ~/.claude/CLAUDE.md`
+  before adding; if it exceeds ~12 KB, move or compress existing entries first.
 - Skills are loaded into context on every trigger — keep additions minimal.
 - For skills with reference files, prefer adding there over bloating SKILL.md.
-- **Always use `/skill-creator` to edit skill files.** Never edit SKILL.md directly
-  without invoking the skill-creator skill first.
+- Edit skill files through `/skill-creator`: its writing guidance (explain the
+  why instead of shouting MUST, keep the body lean, make the description
+  trigger reliably) is what keeps a skill useful after twenty incremental
+  additions.
 
 **Project memory** (`~/.claude/projects/<project>/memory/`):
 - MEMORY.md: Keep concise (<200 lines). One-liners. Link to topic files for detail.

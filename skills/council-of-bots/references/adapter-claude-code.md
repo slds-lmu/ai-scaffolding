@@ -8,15 +8,25 @@ Run the external launcher for Codex and Gemini:
 
 ```bash
 bash ~/.claude/skills/council-of-bots/scripts/council-fanout.sh \
-  /tmp/${ID}-context.md [--no-codex] [--no-gemini] [--no-claude]
+  /tmp/${ID}-context.md [--no-codex] [--no-gemini] [--no-claude] \
+  [--codex-effort LEVEL] [--gemini-effort LEVEL] [--timeout SECONDS] [--add-dir DIR]... \
+  [--gemini-inline FILE]... [--no-gemini-inline] [--gemini-inline-max KB]
 ```
 
-Launch the Claude leg as a background Agent in the same response unless Claude was disabled.
+Use `--timeout` (a flag, since `VAR=x bash ...` prefixes break the permission rule) for
+reviews in which the bots read files from disk; see SKILL.md. Name review files by full
+absolute path in the context so the Gemini leg can inline them (SKILL.md, Step 1).
+
+Launch the Claude leg as a background Agent in the same response unless Claude was
+disabled, with `model: "fable"` (the strongest tier; fall back to `opus` if the
+session cannot run it) and `run_in_background: true`.
 
 ## Why
 
-Inside Claude Code, the Agent path is the reliable inner-Claude adapter.
-Do not replace it with `claude -p` for this skill.
+Inside Claude Code, the Agent path is the reliable inner-Claude adapter;
+`claude -p` hangs when called from within a session. The strongest model is
+used because the council exists to catch what the working model missed, and a
+weaker reviewer mostly reports what the working model already knows.
 
 ## Agent Prompt
 

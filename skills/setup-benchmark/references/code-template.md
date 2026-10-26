@@ -21,25 +21,28 @@ config <- list(
     n_reps = 1000,
     base_seed = 42,
     output_dir = "results/benchmark_name",
-    n_workers = parallel::detectCores() - 1
+    n_workers = parallelly::availableCores(omit = 1)  # respects SLURM/cgroups
 )
 
 # Create output directory
 dir.create(config$output_dir, recursive = TRUE, showWarnings = FALSE)
 
-# Parallel setup
+# Parallel setup. Pin BLAS threads first: multisession workers inherit these
+# env vars; without them each worker spawns its own OpenBLAS thread pool.
+Sys.setenv(OPENBLAS_NUM_THREADS = "1", OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 plan(multisession, workers = config$n_workers)
 
 # -----------------------------------------------------------------------------
 # 2. DGP SETTINGS
 # -----------------------------------------------------------------------------
 
-# Use expand_grid for factorial design (NOT data.frame!)
+# expand_grid() crosses the factors; data.frame() would recycle the vectors
+# and silently produce a one-at-a-time design instead
 dgp_settings <- expand_grid(
     n = c(100, 500, 1000),
     snr = c(5, 20, 50)
     # Add other DGP parameters here
-) %>%
+) |>
     mutate(dgp_id = row_number())
 
 # Methods to compare - USE A DATA FRAME for method configurations
@@ -179,7 +182,7 @@ run_one_replication <- function(rep_id, dgp_row, task_seed, method_settings) {
             fit <- fit_method(data, method_row)
 
             # Extract metrics
-            extract_metrics(fit, data$truth, method_row) %>%
+            extract_metrics(fit, data$truth, method_row) |>
                 mutate(
                     rep = rep_id,
                     dgp_id = dgp_row$dgp_id,
@@ -223,25 +226,24 @@ task_seeds <- sample.int(.Machine$integer.max, n_total_tasks)
 tasks <- expand_grid(
     dgp_id = dgp_settings$dgp_id,
     rep = 1:config$n_reps
-) %>%
+) |>
     mutate(
         task_id = row_number(),
         seed = task_seeds[task_id]
-    ) %>%
+    ) |>
     left_join(dgp_settings, by = "dgp_id")
 
 cat(sprintf("Starting benchmark with %d tasks...\n", nrow(tasks)))
 
-# Export functions to workers
+# Worker options. No `globals`: future finds run_one_replication and every
+# helper it calls by walking the call graph (they are all top-level here).
+# seed = NULL, not TRUE: each task seeds itself with set.seed(task$seed) from
+# the pre-drawn task_seeds above (so any task is re-runnable by id); seed = TRUE
+# would add a second L'Ecuyer stream on top. NULL also disables future's
+# "unexpectedly generated random numbers" check, which would otherwise fire.
 furrr_opts <- furrr_options(
-    globals = c(
-        "method_settings",
-        "generate_data", "fit_method", "extract_metrics",
-        "run_one_replication"
-        # Add any other helpers your methods need
-    ),
     packages = c("tidyverse"),  # Add packages your methods need
-    seed = NULL  # We manage seeds ourselves
+    seed = NULL
 )
 
 # Run with progress
@@ -249,7 +251,7 @@ results <- future_map_dfr(
     1:nrow(tasks),
     function(i) {
         task <- tasks[i, ]
-        dgp_row <- dgp_settings %>% filter(dgp_id == task$dgp_id)
+        dgp_row <- dgp_settings |> filter(dgp_id == task$dgp_id)
         run_one_replication(task$rep, dgp_row, task$seed, method_settings)
     },
     .options = furrr_opts,
@@ -264,16 +266,16 @@ saveRDS(results, file.path(config$output_dir, "raw_results.rds"))
 # -----------------------------------------------------------------------------
 
 # Check for failures
-failures <- results %>% filter(!success)
+failures <- results |> filter(!success)
 if (nrow(failures) > 0) {
     warning(sprintf("%d tasks failed out of %d", nrow(failures), nrow(results)))
     saveRDS(failures, file.path(config$output_dir, "failures.rds"))
 }
 
 # Aggregate successful results
-summary_stats <- results %>%
-    filter(success) %>%
-    group_by(dgp_id, n, snr, method_name) %>%
+summary_stats <- results |>
+    filter(success) |>
+    group_by(dgp_id, n, snr, method_name) |>
     summarise(
         n_reps = n(),
         # Bias
@@ -292,10 +294,10 @@ saveRDS(summary_stats, file.path(config$output_dir, "summary_stats.rds"))
 
 # Print summary table
 cat("\n=== RMSE Summary ===\n")
-summary_stats %>%
-    select(n, snr, method_name, mean_rmse) %>%
-    pivot_wider(names_from = method_name, values_from = mean_rmse) %>%
-    arrange(n, snr) %>%
+summary_stats |>
+    select(n, snr, method_name, mean_rmse) |>
+    pivot_wider(names_from = method_name, values_from = mean_rmse) |>
+    arrange(n, snr) |>
     print(n = 50)
 
 cat("\nBenchmark complete!\n")
@@ -320,9 +322,9 @@ For very long-running benchmarks, save after each DGP instead of at the end:
 ```r
 # Run per-DGP (easier to resume)
 for (dgp_id in dgp_settings$dgp_id) {
-    dgp_row <- dgp_settings %>% filter(dgp_id == !!dgp_id)
+    dgp_row <- dgp_settings |> filter(dgp_id == !!dgp_id)
 
-    dgp_tasks <- tasks %>% filter(dgp_id == !!dgp_id)
+    dgp_tasks <- tasks |> filter(dgp_id == !!dgp_id)
 
     results <- future_map_dfr(
         1:nrow(dgp_tasks),
@@ -344,6 +346,6 @@ for (dgp_id in dgp_settings$dgp_id) {
 }
 
 # Combine all DGP results
-all_results <- list.files(config$output_dir, "dgp_.*\\.rds", full.names = TRUE) %>%
+all_results <- list.files(config$output_dir, "dgp_.*\\.rds", full.names = TRUE) |>
     map_dfr(readRDS)
 ```

@@ -1,6 +1,13 @@
 ---
 name: r-package-coding
-description: R package development standards for AI coding agents. Use when writing R package code (not scripts/analysis), implementing S3 objects, writing roxygen2 documentation, or working with checkmate/cli/purrr/vctrs. Covers naming conventions, pure functions, validation patterns, and package workflow.
+description: >
+  R package development standards covering naming, pure functions, S3 design,
+  checkmate/cli/purrr/vctrs, roxygen2 (incl. @examplesIf vs \donttest), testthat v3,
+  Depends/Imports/Suggests discipline, and the format → document → check → pkgdown
+  pre-commit workflow. Use whenever you write, refactor, test, document, or review code
+  inside an R package (anything with a DESCRIPTION file), even if the user only says
+  "add a function to the package", "fix this test", or "the check is failing". Not for
+  standalone scripts or analyses (use r-scripting); for release work use cran-submission.
 ---
 
 # R Package Development
@@ -109,10 +116,13 @@ filter_sig <- function(data, threshold = 0.05) filter(data, p < threshold)
 ### Style Rules
 - Native pipe `|>` (not `%>%`)
 - Lambda `\(x)` (not `function(x)`)
-- ~50 lines max per function
 - Required args first, optional with defaults after
-- Cyclomatic complexity < 10 per function
-- **Run `air format .` after every major edit** (not just before commit). A pre-commit hook enforces this, so formatting early avoids wasted cycles.
+- Functions around 50 lines and cyclomatic complexity below ~10 are heuristics,
+  not limits: a 70-line function that is one linear computation is fine, a
+  30-line function with five nested branches is not. When you exceed them, ask
+  whether a subtask has a name; if it does, extract it.
+- Run `air format .` after every major edit, not just before commit; the
+  pre-commit hook rejects unformatted code, so formatting late costs a cycle.
 
 ### Long Parameter Lists
 
@@ -362,6 +372,21 @@ test_that("fits on real data", {
 
 Set random seeds inside each test; they are never set automatically.
 
+`devtools::test()` sets `NOT_CRAN=true`; a bare `Rscript -e 'testthat::test_file(...)'`
+does not, so `skip_on_cran()` tests silently skip there — set
+`Sys.setenv(NOT_CRAN = "true")` first when reproducing a test run that way.
+
+A segfault or heap error inside a test run is usually not your R code: reduce it to a
+plain call of the dependency first (`R -d "gdb -batch -ex run -ex bt" -f repro.R` gives
+the C backtrace), then guard your package against the input that triggers it and report
+upstream.
+To locate a heap overflow in compiled code, build the dependency with ASan into a
+separate lib (Makevars `CFLAGS = -g -O1 -fsanitize=address -fno-omit-frame-pointer`,
+`LDFLAGS = -fsanitize=address`; `R CMD INSTALL --no-test-load`, since the load test
+runs without the runtime) and run with `LD_PRELOAD=$(gcc -print-file-name=libasan.so)
+ASAN_OPTIONS=detect_leaks=0 R_LIBS=<lib>`. To measure an oversized allocation, read
+`VmPeak` from `/proc/self/status`: calloc'd but untouched workspace never shows in RSS/VmHWM.
+
 ### Mocking
 
 `testthat::with_mock()` is deprecated. Use `local_mocked_bindings()` for
@@ -375,7 +400,11 @@ test_that("handles API timeout", {
 ```
 
 ### Helper Functions
-Extract common patterns to reduce duplication:
+
+Put shared fixtures and generators in `tests/testthat/helper-*.R`; testthat
+sources these before every test run (and `devtools::load_all()` picks them up
+too), so tests stay short without hidden coupling through the global
+environment.
 
 ### Anti-Patterns in Testing
 
@@ -388,7 +417,10 @@ Extract common patterns to reduce duplication:
 | "Does not crash" tests | No behavioral verification | Assert on outputs |
 
 ### File Organization
-Split large test files by topic
+
+Mirror `R/` in `tests/testthat/` (`R/smooth.R` ↔ `test-smooth.R`), so
+`devtools::test_active_file()` and `usethis::use_test()` find the right file
+and a failing test points at the source file that owns the behavior.
 
 ## Workflow
 
@@ -398,17 +430,25 @@ devtools::load_all()   # Interactive test
 devtools::test()       # Run tests
 ```
 
-### Pre-Commit Requirements (MANDATORY)
+### Before every commit
 
-**Before every commit, run these steps in order. No exceptions.**
+1. **Format**: `air format .` in the terminal. The pre-commit hook runs Air on
+   staged `.R` files and rejects the commit if anything changes, so formatting
+   first saves a failed-commit/re-stage cycle (and the temptation to `git commit --amend` after a hook failure).
+2. **Document & check** for anything that touches the public surface or the
+   dependency graph (new/changed exports, roxygen edits, NAMESPACE, new
+   dependencies, new tests): `devtools::document()` then `devtools::check()`.
+   `document()` first, always: it regenerates NAMESPACE from `@importFrom` /
+   `@export`, and a stale NAMESPACE produces "object not found" errors even
+   for exported functions, which look like real bugs and are not.
+3. **Sync pkgdown** when exports, vignettes/articles, or help-topic names
+   change: update `_pkgdown.yml` (every exported topic in `reference:`, new
+   articles in `articles:`/navbar), then `pkgdown::check_pkgdown()` (fast, no
+   site build). `devtools::check()` does not flag a stale `_pkgdown.yml`; the
+   gap only surfaces when the site builds, often in CI at release time.
 
-1. **Format**: `air format .` in the terminal. A pre-commit hook enforces this—committing unformatted code will fail.
-2. **Document & check** (for non-trivial changes—new/changed exports, roxygen edits, NAMESPACE changes, new dependencies, test additions): run `devtools::document()` then `devtools::check()` in R. Both must pass before committing.
-3. **Sync pkgdown** (when the public surface changes—new/renamed/removed exports, new vignettes/articles, renamed help topics): update `_pkgdown.yml` so every exported topic stays in the `reference:` index and new articles land in the `articles:`/navbar entries, then run `pkgdown::check_pkgdown()` (fast, no full site build). This is easy to forget because `devtools::check()` does *not* flag a stale `_pkgdown.yml`—a missing or renamed topic only surfaces when the site builds, often much later in CI or at release.
-
-Skip steps 2–3 only for minor internal edits (e.g., tweaking logic inside an unexported helper with no doc or test changes).
-
-**Important**: Always run `devtools::document()` before `devtools::test()` or `devtools::check()`. This regenerates the NAMESPACE file from `@importFrom` and `@export` directives. Skipping this step after adding imports causes "object not found" errors even for exported functions.
+For a purely internal edit (logic inside an unexported helper, no doc or test
+change), step 1 is enough.
 
 **File organization**: One concept per file, helpers at top, exports at bottom.
 Use `# Section Name ----` or `# Section Name ------` format (dashes to ~col 80) for sections.
@@ -437,15 +477,15 @@ submission, post-acceptance), use the `cran-submission` skill (`/cran-submission
 ## Checklist
 
 Before commit:
-- [ ] **`air format .`** (terminal) — always, no exceptions
-- [ ] **`devtools::document()` then `devtools::check()`** — for any non-trivial change
+- [ ] **`air format .`** (terminal)
+- [ ] **`devtools::document()` then `devtools::check()`** — for any change to the public surface or dependencies
 - [ ] **`pkgdown::check_pkgdown()`** — when exports/vignettes/help topics change (keep `_pkgdown.yml` reference index + articles in sync)
 - [ ] Pure functions (no globals)
 - [ ] Complete roxygen2 with examples
 - [ ] checkmate validation at boundaries
 - [ ] cli formatting for messages
 - [ ] Native pipe `|>` and lambda `\(x)`
-- [ ] Functions < 50 lines
+- [ ] Functions short enough that each subtask has a name (~50 lines as a heuristic)
 - [ ] No dead/commented-out code
 - [ ] Long param lists grouped into control objects
 - [ ] Tests for new functionality

@@ -30,18 +30,32 @@ Adapt based on context: first submission vs update, patch vs minor/major.
 
 ## Parallelization Strategy
 
-**Most steps are independent and MUST run concurrently.** After pre-flight
-(Step 1), launch as many steps as possible in parallel:
+Most steps are independent, and the slow ones are pure waiting: `devtools::check`
+takes minutes, `revdep_check` hours, rhub/win-builder are remote. Serializing
+them wastes exactly the time Step 3 (the manual policy review, which needs your
+judgment) could use. After pre-flight (Step 1), launch everything below in one
+message, then do Step 3 while it runs.
 
 ### Parallel group A (launch simultaneously after Step 1)
-- **Step 2** (local check): Run via background Agent (`Bash` with
-  `run_in_background: true`): `Rscript -e 'devtools::check(remote=TRUE, manual=TRUE)'`
-- **Step 4** (pkgdown): Run via background Agent if pkgdown is present:
-  `Rscript -e 'pkgdown::build_site()'`
-- **Step 5** (rhub): Kick off `rhub::rhub_check()` -- runs remotely on GitHub
+- **Step 2** (local check): background Bash, output to a log file (with the
+  `options(repos = ...)` prefix from Step 2 below):
+  `Rscript -e 'devtools::check(remote=TRUE, manual=TRUE)' > /tmp/check.log 2>&1`
+- **Step 4** (pkgdown): background Bash if pkgdown is present:
+  `Rscript -e 'pkgdown::build_site()' > /tmp/pkgdown.log 2>&1`
+- **Step 5** (rhub): kick off `rhub::rhub_check()` -- runs remotely on GitHub
   Actions, results arrive asynchronously. Also `devtools::check_win_devel()`.
-- **Step 6** (revdep): Run via background Agent (long-running):
-  `Rscript -e 'revdepcheck::revdep_check(num_workers=4)'`
+- **Step 6** (revdep): hours-long, so detach it from the tool's process group
+  or an interrupted turn kills it (a plain `&` job dies with the turn):
+  `setsid nohup Rscript -e 'revdepcheck::revdep_check(num_workers=4)' > /tmp/revdep.log 2>&1 < /dev/null &`
+  and poll the log later; `revdep_check()` resumes if it does die.
+
+Use background **Bash**, not an Agent, for these: each is a single command whose
+result is a log file, and an Agent wrapping one `Rscript` call spends a whole
+subagent context on sitting in `wait`. Spawn an Agent only where the result
+needs interpretation before you can act, e.g. to root-cause a pile of revdep
+failures while you continue with Step 3. Write output to a log file rather than
+piping through `tail`/`grep` (a pipe buffers until exit and hides the real exit
+code); read the log when the job finishes.
 
 ### Sequential / main thread
 - **Step 3** (extra checks): Do this yourself in the main thread while the
@@ -54,23 +68,16 @@ Adapt based on context: first submission vs update, patch vs minor/major.
 ### Implementation pattern
 ```
 # In a single message, launch all background work:
-Agent(prompt="Run devtools::check(remote=TRUE, manual=TRUE) in R...",
-      run_in_background=true)
-Agent(prompt="Run pkgdown::build_site() in R...",
-      run_in_background=true)
-Agent(prompt="Run revdepcheck::revdep_check(num_workers=4) in R...",
-      run_in_background=true)
-Bash(command="Rscript -e 'rhub::rhub_check(...)'",
+Bash(command="Rscript -e 'options(repos=c(CRAN=\"https://cloud.r-project.org\")); devtools::check(remote=TRUE, manual=TRUE)' > /tmp/check.log 2>&1",
      run_in_background=true)
-Bash(command="Rscript -e 'devtools::check_win_devel()'",
+Bash(command="Rscript -e 'pkgdown::build_site()' > /tmp/pkgdown.log 2>&1",
      run_in_background=true)
+Bash(command="setsid nohup Rscript -e 'revdepcheck::revdep_check(num_workers=4)' > /tmp/revdep.log 2>&1 < /dev/null &")
+Bash(command="Rscript -e 'rhub::rhub_check(...)'", run_in_background=true)
+Bash(command="Rscript -e 'devtools::check_win_devel()'", run_in_background=true)
 # Then proceed with Step 3 (extra checks) in the main thread.
-# When background tasks complete, collect results for Step 7.
+# When background tasks complete, read the logs and collect results for Step 7.
 ```
-
-Do NOT serialize these steps. The whole point is that `devtools::check` takes
-minutes, `revdep_check` takes hours, and rhub/win-builder are remote -- use
-that time for the manual review work in Step 3.
 
 ## Step 1: Pre-Flight
 
@@ -97,10 +104,10 @@ Check that:
 
 ## Step 2: Local Checks
 
-**Run in background Agent** -- do not wait; proceed to Step 3.
+**Run as background Bash** -- do not wait; proceed to Step 3.
 
 `remote = TRUE` triggers the "CRAN incoming feasibility" check, which fetches
-`<repos CRAN url>/src/contrib/PACKAGES.in`. This machine's default `.Rprofile`
+`<repos CRAN url>/src/contrib/PACKAGES.in`. If your default `.Rprofile`
 points `repos["CRAN"]` at a Posit Package Manager binary mirror for speed,
 and PPM never hosts `PACKAGES.in` (any PPM URL form 404s on it) -- only real
 CRAN mirrors have it. Point at the real mirror for this specific check,
@@ -194,7 +201,7 @@ environment.
 
 ## Step 4: pkgdown Verification
 
-**Run in background Agent.** Skip if the package has no pkgdown site. Otherwise:
+**Run as background Bash.** Skip if the package has no pkgdown site. Otherwise:
 
 ```r
 # Validate configuration
@@ -278,7 +285,8 @@ rhub::rc_submit()      # submit checks
 
 ## Step 6: Reverse Dependency Checks
 
-**Run in background Agent** (can take hours). **Skip for first submissions.**
+**Run detached (`setsid nohup ... &`)**, since it can take hours and must
+survive an interrupted turn. **Skip for first submissions.**
 Required for updates, especially if the API changed.
 
 **Scope** (per CRAN policy): check reverse strong dependencies, reverse
@@ -336,7 +344,7 @@ additional packages beyond the auto-detected set.
 
 ## Step 7: Update cran-comments.md
 
-**Barrier step** -- wait for all background Agents and remote checks to
+**Barrier step** -- wait for all background jobs and remote checks to
 complete before writing. Collect and summarize all results here.
 
 Template:
@@ -437,3 +445,24 @@ the upstream version is actually live on the mirrors.
 | `rhub::rhub_check()` | Cross-platform checks |
 | `revdepcheck::revdep_check()` | Reverse dep checks |
 | `devtools::check_win_devel()` | Win-builder check |
+
+## Background: PPM default repo vs `remote = TRUE`
+
+- **If your `.Rprofile` defaults `repos["CRAN"]` to a Posit Package
+  Manager (PPM) binary mirror** (`packagemanager.posit.co/cran/__linux__/noble/latest`)
+  so installs/`revdepcheck` use precompiled binaries instead of compiling
+  everything from source (fast by design — keep it as the default).
+  One specific gap: `devtools::check(remote = TRUE)`'s "CRAN incoming
+  feasibility" step fetches `<repos CRAN url>/src/contrib/PACKAGES.in`, and
+  PPM never hosts that file (confirmed via `curl` — every PPM URL form
+  404s on it; only real CRAN mirrors have it). So `remote = TRUE` checks
+  always 404 under the PPM default, regardless of URL form or
+  `HTTPUserAgent` header.
+  - For routine dev checks, just use `remote = FALSE` (skips the CRAN-only
+    incoming-feasibility step, which isn't needed until actual submission).
+  - When you do need `remote = TRUE` (e.g. right before CRAN submission),
+    switch to the real mirror first, e.g. with a `.Rprofile`
+    `use_real_cran()` helper (`options(repos = c(CRAN =
+    "https://cloud.r-project.org"))`) for this. The `cran-submission` skill
+    also inlines this `options()` call directly ahead of its `remote = TRUE`
+    steps, so it doesn't depend on `.Rprofile` defining the helper.

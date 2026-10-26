@@ -21,7 +21,7 @@
    "num": "4.6",
    "section": "4.6",
    "file": "src/sections/_demo.mdx",
-   "line": 45,
+   "line": 46,
    "fixed": true,
    "kind": "Definition",
    "directive": "definition",
@@ -33,7 +33,7 @@
    "num": "4.6.1",
    "section": "4.6",
    "file": "src/sections/_demo.mdx",
-   "line": 50,
+   "line": 51,
    "fixed": false,
    "kind": "Example",
    "directive": "example",
@@ -50,6 +50,14 @@
    "line": 30,
    "fixed": true,
    "anchor": "eq-4.12"
+  },
+  "guess-length": {
+   "num": "4.6.2",
+   "section": "4.6",
+   "file": "src/sections/_demo.mdx",
+   "line": 89,
+   "fixed": false,
+   "anchor": "eq-guess-length"
   },
   "two-step": {
    "num": "4.6.1",
@@ -75,7 +83,7 @@
    "num": "4.6.2",
    "section": "4.6",
    "file": "src/sections/_demo.mdx",
-   "line": 54,
+   "line": 55,
    "fixed": false,
    "title": "Why the counter matters",
    "depth": 3,

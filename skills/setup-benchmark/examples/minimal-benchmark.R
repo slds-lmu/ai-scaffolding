@@ -15,11 +15,12 @@ config <- list(
   n_reps = 100,
   seed = 42,
   p = 50,
-  n_workers = parallel::detectCores() - 1
+  n_workers = parallelly::availableCores(omit = 1) # respects SLURM/cgroups
 )
 
 # -----------------------------------------------------------------------------
-# DGP settings - USE expand_grid, NOT data.frame!
+# DGP settings: expand_grid() crosses the factors; data.frame() would recycle
+# the vectors and silently produce a one-at-a-time design instead
 # -----------------------------------------------------------------------------
 
 dgp_settings <- expand_grid(
@@ -246,7 +247,17 @@ tasks <- expand_grid(
   left_join(dgp_settings, by = "dgp_id")
 
 # Setup parallel
-plan(multicore, workers = config$n_workers)
+# Pin BLAS threads BEFORE plan(): multisession workers are fresh R processes
+# that inherit these env vars. If you switch to plan(multicore) (fork), this
+# is too late -- the forked children inherit the parent's already-sized
+# OpenBLAS pool -- so pin in the shell instead:
+#   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 Rscript minimal-benchmark.R
+Sys.setenv(
+  OPENBLAS_NUM_THREADS = "1",
+  OMP_NUM_THREADS = "1",
+  MKL_NUM_THREADS = "1"
+)
+plan(multisession, workers = config$n_workers)
 
 cat(sprintf(
   "Running %d tasks on %d workers...\n",
@@ -268,18 +279,16 @@ results_df <- future_map_dfr(
       config$p
     )
   },
+  # No `globals`: future walks run_one_replication's call graph and exports
+  # every top-level helper it reaches (in furrr, anything but a plain TRUE
+  # replaces that auto-detection with your list).
   .options = furrr_options(
-    globals = c(
-      "generate_data",
-      "fit_method",
-      "extract_metrics",
-      "make_failure_row",
-      "run_one_replication",
-      "method_settings",
-      "config"
-    ),
     packages = c("tidyverse", "glmnet"),
-    seed = TRUE
+    # seed = NULL, not TRUE: every task calls set.seed(task$seed) itself from
+    # the pre-drawn task_seeds, which is what makes a single task re-runnable
+    # by id. seed = TRUE would layer a second L'Ecuyer stream on top (double
+    # seeding); NULL also tells future not to warn about in-task RNG use.
+    seed = NULL
   ),
   .progress = TRUE
 )

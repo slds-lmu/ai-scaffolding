@@ -41,6 +41,7 @@ $$
 Prose never spells a number out. Reference the label and the text is filled
 in from the number table: @eq:4.12 is the eigendecomposition above, @eq:two-step
 composes the map with itself, and @definition:4.6 says what the map is.
+Hovering a reference to a definition or theorem previews its wording.
 
 :::definition[4.6 (Scaling map)]
 A scaling map sends every :c[vector]{#_demo-concept} $\mathbf{x}$ to
@@ -57,6 +58,10 @@ A heading can be numbered the same two ways. `### 4.6.1 …` above keeps the
 source's number; `:id[why-counted]` here asks the counter for one, so this
 heading is @sec:why-counted and stays correct when something is inserted
 before it.
+
+A term the text defines itself links to its definition with `:d`: every
+:d[scaling map]{id=4.6} previews the wording of @definition:4.6 on hover. A
+source number needs the `id=` form; a slug can be written `{#scaling-twice}`.
 
 :::interactive[Change the horizontal scale]
 
@@ -79,14 +84,23 @@ answer is shown; `verdeckt` holds whatever is revealed afterwards.
   <p>Hint: the first coordinate is stretched by 1.5, the second is unchanged.</p>
 </GuessFirst>
 
+An id inside a deep dive stays reachable: a link to it opens the box first.
+
+$$ {#eq-guess-length}
+\|\mathbf{A}\mathbf{x}\| = \sqrt{s^2 + 1}
+$$
+
 :::
+
+The length formula @eq:guess-length sits in the collapsed box above; following
+the reference opens it.
 
 ::::proof
 
 :::step
 Apply the map twice to obtain $a(a\mathbf{x})$.
 
-::why[The first application replaces $\mathbf{x}$ by $a\mathbf{x}$.]
+::why[The first application of the :d[scaling map]{id=4.6} replaces $\mathbf{x}$ by $a\mathbf{x}$.]
 :::
 
 :::step

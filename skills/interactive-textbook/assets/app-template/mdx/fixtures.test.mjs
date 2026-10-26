@@ -87,6 +87,12 @@ const ACCEPT = {
     `::source[Slides 4, p. 12]\n\n:::deepdive[More]\nText.\n:::`,
     `<ExpandedReading title="More">`,
   ],
+  // the outer container carries the longer fence: an interactive box inside
+  // an optional deep dive is ::::deepdive around :::interactive
+  "interactive nested inside a deepdive": [
+    `::::deepdive[Optional]\n\n:::interactive[Try it]\nText.\n:::\n\n::::`,
+    `<ExpandedReading title="Optional">`,
+  ],
   "english algorithm environment": [
     `:::algorithm[2.1 (Gauss)]\nText.\n:::`,
     `<EnvBlock kind="Algorithm" label="2.1 (Gauss)" id="env-2.1">`,
@@ -356,7 +362,29 @@ const NUM_ACCEPT = {
   "heading with a source number": [`### 4.6.1 Title\n`, `id="sec-4.6.1"`],
   "heading with :id gets an anchor": [`### Why it works :id[why-counted]\n`, `id="sec-why-counted"`],
   "heading with :id prints the number": [`### Why it works :id[why-counted]\n`, `4.6.2 `],
-  "@theorem on a slug": [`By @theorem:kkt we get.`, `<_components.a href="#env-kkt">{"Theorem 4.6.1"}</_components.a>`],
+  "@theorem on a slug (link with preview)": [`By @theorem:kkt we get.`, `<ConceptLink id="env:kkt" href="#env-kkt">{"Theorem 4.6.1"}</ConceptLink>`],
+  "@example stays a plain link (no preview)": [`See @example:bsp-a.`, `<_components.a href="#env-bsp-a">{"Example 4.6.2"}</_components.a>`],
+  ":d on a counted theorem": [`The :d[KKT conditions]{#kkt} hold.`, `<ConceptLink id="env:kkt">{"KKT conditions"}</ConceptLink>`],
+  ":d on a source number (id=)": [`A :d[scaling map]{id=4.6} scales.`, `<ConceptLink id="env:4.6">{"scaling map"}</ConceptLink>`],
+  ":d inside ::why": [
+    `::::proof\n\n:::step\nOne.\n\n::why[by the :d[KKT conditions]{#kkt}]\n:::\n\n::::`,
+    `<ConceptLink id={"env:kkt"}>{"KKT conditions"}</ConceptLink>`,
+  ],
+  "reference inside ::why keeps its preview": [
+    `::::proof\n\n:::step\nOne.\n\n::why[by @theorem:kkt]\n:::\n\n::::`,
+    `<ConceptLink id={"env:kkt"} href={"#env-kkt"}>`,
+  ],
+  "preview copy: counted equation keeps its number but no anchor id": [
+    `$$ {#eq-two-step}\nx\n$$`,
+    `<Eq tag="4.6.1">`,
+    "/x/src/definitions/kkt.mdx",
+  ],
+  "preview copy: source-numbered equation gets no anchor id": [`$$ {#eq-5.107}\nx\n$$`, `<Eq tag="5.107">`, "/x/src/definitions/kkt.mdx"],
+  "preview copy: references resolve as on the page": [
+    `By @eq:two-step, see @sec:why-counted.`,
+    `href="#sec-why-counted">{"Section 4.6.2"}`,
+    "/x/src/definitions/kkt.mdx",
+  ],
   "@satz (german alias) on a Theorem": [`By @satz:kkt.`, `{"Theorem 4.6.1"}`],
   "@definition on a source number": [`See @definition:4.6.`, `href="#env-4.6">{"Definition 4.6"}`],
   "@eq on a source number": [`From @eq:5.107 it follows.`, `href="#eq-5.107">{"(5.107)"}`],
@@ -366,7 +394,7 @@ const NUM_ACCEPT = {
   "@sec on a section number": [`In @sec:4.3 we saw.`, `href="#sec-4.3">{"Section 4.3"}`],
   "@sec on a section key": [`In @sec:scaling we saw.`, `href="#sec-scaling">{"Section 4.6"}`],
   "@sec on a sub-heading": [`In @sec:why-counted we saw.`, `href="#sec-why-counted">{"Section 4.6.2"}`],
-  "reference at the end of a sentence keeps the period": [`See @theorem:kkt.`, `{"Theorem 4.6.1"}</_components.a>{"."}`],
+  "reference at the end of a sentence keeps the period": [`See @theorem:kkt.`, `{"Theorem 4.6.1"}</ConceptLink>{"."}`],
   "reference inside ::why": [
     `::::proof\n\n:::step\nOne.\n\n::why[by @theorem:kkt and @eq:5.107]\n:::\n\n::::`,
     `href={"#env-kkt"}>{"Theorem 4.6.1"}`,
@@ -392,6 +420,11 @@ const NUM_REJECT = {
   ":id not at the end": [`### A :id[why-counted] B\n`, `must come LAST`],
   "heading with a number AND an :id": [`### 4.6.1 Title :id[why-counted]\n`, `carries a number AND`],
   "reference inside an env label": [`:::theorem[#kkt (after @eq:5.107)]\nText.\n:::`, `@references`],
+  ":d without id": [`The :d[scaling map] scales.`, `needs the id of a definition`],
+  ":d on an unknown id": [`The :d[norm]{#nope} measures.`, `not in the number table`],
+  ":d on an Example": [`The :d[example]{#bsp-a} shows.`, `:d only links to`],
+  ":d with {#4.6} (dot starts a class)": [`A :d[scaling map]{#4.6} scales.`, `write a source number as :d[…]{id=4.6}`],
+  ":d with an extra attribute": [`The :d[KKT]{#kkt x=1} hold.`, `kein erlaubtes Attribut`],
 };
 
 let pass = 0;
@@ -446,7 +479,7 @@ for (const [name, [src, expect, filePath]] of Object.entries(NUM_REJECT)) {
   if (!errors.length && JSON.stringify(nums) === JSON.stringify(want)) pass++;
   else failures.push(`GEN counter: ${JSON.stringify(nums)} ${errors.join("; ")}`);
 
-  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
   const os = await import("node:os");
   const tmp = mkdtempSync(path.join(os.tmpdir(), "itb-numbers-"));
   try {
@@ -469,6 +502,40 @@ for (const [name, [src, expect, filePath]] of Object.entries(NUM_REJECT)) {
     else failures.push(`GEN duplicate id across files: ${e2.join(" | ") || "no error"}`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // Definition previews: copies for definitions/theorems only, body without
+  // the label; a body that cannot live in a window is an error.
+  const { generateNumbers } = await import("../scripts/gen-numbers.mjs");
+  const { generateDefinitions } = await import("../scripts/gen-definitions.mjs");
+  const tmp2 = mkdtempSync(path.join(os.tmpdir(), "itb-definitions-"));
+  try {
+    mkdirSync(path.join(tmp2, "src/sections"), { recursive: true });
+    const s21 = path.join(tmp2, "src/sections/S21.mdx");
+    writeFileSync(
+      s21,
+      `export const id = "2.1";\nexport const title = "A";\n\n:::definition[2.1 (Norm)]\nA *norm* is $\\|x\\|$.\n:::\n\n` +
+        `:::theorem[#tri]\nBy @definition:2.1 it holds.\n:::\n\n:::example[#ex]\nNo copy.\n:::\n`
+    );
+    generateNumbers(tmp2);
+    const r = generateDefinitions(tmp2);
+    const copy = (id) => readFileSync(path.join(tmp2, "src/definitions", `${id}.mdx`), "utf8");
+    const ok1 =
+      !r.errors.length &&
+      r.count === 2 &&
+      copy("2.1").startsWith(`export const meta = {"id":"2.1","kind":"Definition","num":"2.1","name":"Norm"`) &&
+      copy("2.1").endsWith(`\n\nA *norm* is $\\|x\\|$.\n`) &&
+      copy("tri").includes(`By @definition:2.1 it holds.`);
+    if (ok1) pass++;
+    else failures.push(`GEN definitions: ${r.errors.join(" | ") || JSON.stringify([...r.written])}`);
+
+    writeFileSync(s21, `export const id = "2.1";\nexport const title = "A";\n\n:::lemma[#bad]\n### Heading\n:::\n`);
+    generateNumbers(tmp2);
+    const r2 = generateDefinitions(tmp2);
+    if (r2.errors.some((m) => m.includes("contains a heading"))) pass++;
+    else failures.push(`GEN definitions reject: ${r2.errors.join(" | ") || "no error"}`);
+  } finally {
+    rmSync(tmp2, { recursive: true, force: true });
   }
 }
 
@@ -565,7 +632,7 @@ const total =
   Object.keys(REJECT).length +
   Object.keys(NUM_ACCEPT).length +
   Object.keys(NUM_REJECT).length +
-  2 +
+  4 +
   Object.keys(INVENTORY).length +
   Object.keys(TYPE_REJECT).length +
   5;

@@ -59,39 +59,50 @@ W <- matrix(rep(weights, times = n_obs), nrow = n_obs, byrow = TRUE)
 
 ## 3. Parallel Exports: Missing Functions in Workers
 
-**Symptom**: "object 'my_function' not found" errors during parallel execution
+**Symptom**: `could not find function "helper1"` on every worker during parallel
+execution, often from inside the `tryCatch` error handler as well.
+
+**Cause**: future exports globals by walking the call graph of the mapped
+function *recursively*, so helpers called by helpers are found automatically,
+as long as they are reachable from the mapped function's environment (top level
+of the script, a `source()`d file, or the enclosing function). It also attaches
+the packages those globals belong to. Two things break this:
+
+1. Hand-listing `globals`. In furrr, anything other than a plain `TRUE` (a
+   character vector, a named list, or `structure(TRUE, add = ...)`) replaces
+   auto-detection entirely, and the first helper you did not name is missing on
+   the workers.
+2. Names that never appear literally in the worker code, so no walk can find
+   them: S3 methods reached only via dispatch (`predict.myfit`), functions
+   called by string (`do.call("fn", ...)`, `match.fun()`), formula specials.
 
 **Wrong**:
 ```r
-plan(multisession, workers = 4)
-
-# Functions defined in main script
-generate_data <- function(...) { ... }
-fit_model <- function(...) { ... }
-
-# Workers can't see these functions!
-results <- future_map(tasks, ~{
-    data <- generate_data(.)  # ERROR: not found
-})
+opts <- furrr_options(
+    globals = c("generate_data", "fit_model"),  # forgot helper1, helper2
+    seed = TRUE
+)
+results <- future_map(tasks, run_task, .options = opts)   # workers die
 ```
 
 **Right**:
 ```r
-plan(multisession, workers = 4)
+plan(multisession, workers = parallelly::availableCores(omit = 1))
 
-generate_data <- function(...) { ... }
-fit_model <- function(...) { ... }
-
-# Explicitly export all functions
+# helpers at top level (or source("R/helpers.R")); no globals argument
 opts <- furrr_options(
-    globals = c("generate_data", "fit_model", "helper1", "helper2"),
-    seed = TRUE
+    seed = TRUE,
+    packages = c("mgcv")   # what the workers need attached
 )
-
-results <- future_map(tasks, ~{
-    data <- generate_data(.)  # Works
-}, .options = opts)
+results <- future_map(tasks, run_task, .options = opts)
 ```
+
+If a worker still cannot find a function, first move its definition to top level
+or `source()` the file. For the case-2 names that detection cannot see, reference
+them literally once inside the worker function (`force(predict.myfit)`), or
+`source()` the helper file inside the worker function, and list the package in
+`packages =`. Listing names in `globals` is the last resort, and then it has to
+be the complete list.
 
 ---
 

@@ -1,6 +1,12 @@
 ---
 name: r-scripting
-description: R coding standards for scripts and data analysis. Use for writing R scripts, data analysis, tidyverse workflows, or exploratory analysis. Includes guidance for creating teaching demos with knitr::spin (literate R scripts that render to PDF/HTML). Not for package development.
+description: >
+  R coding standards for scripts, data analysis, and tidyverse workflows, covering script
+  structure, pure functions, early returns, purrr patterns, error handling, air formatting,
+  and knitr::spin literate demos that render to PDF/HTML. Use whenever you write or clean
+  up an R script, analysis file, simulation driver, or teaching demo that is not part of a
+  package, even if the user just says "write me an R script for X", "tidy this analysis",
+  or "make a demo for the lecture". For code inside a package use r-package-coding instead.
 ---
 
 # R Scripting
@@ -81,8 +87,11 @@ map(data, \(x) x^2 + 1)
 ```
 
 - 2 spaces indentation, ~80 chars/line
-- Use native pipe `|>` (R ≥ 4.1) or `%>%`
-- **Run `air format .` after every major edit** (not just before commit). A pre-commit hook enforces this, so formatting early avoids wasted cycles.
+- Native pipe `|>`, not `%>%` (same rule as `r-package-coding`; mixing the two
+  in one project is the thing to avoid). Keep `%>%` only when editing an
+  existing script that already uses it throughout.
+- Run `air format .` after every major edit, not just before commit; where a
+  pre-commit hook enforces it, formatting late costs a failed-commit cycle.
 
 ---
 
@@ -167,8 +176,9 @@ arg <- arg %||% default_value
 ### Vectorized Conditions
 
 ```r
-# Simple binary
-result <- ifelse(x > 0, "pos", "neg")
+# Simple binary (dplyr's if_else is type-stable and has a `missing =`
+# argument; base ifelse silently drops attributes such as Date/factor)
+result <- if_else(x > 0, "pos", "neg")
 
 # Multiple conditions
 category <- case_when(
@@ -361,3 +371,60 @@ air format .  # Format all R files
 - [ ] No dead/commented-out code
 - [ ] Run `air format .` before commit
 - [ ] For demos: see `knitr-spin-reference.md`
+
+## Hard-won lessons (past sessions)
+
+- **Never modify a script file while a process is still executing it.** Both `Rscript`
+  and `bash` parse top-level statements *incrementally by byte offset*, so rewriting the
+  file shifts the offsets and the running job dies mid-run with a spurious parse error
+  (e.g. `unexpected ','`). Two ways this bites: (a) committing an `.R` script in a repo
+  with a formatter pre-commit hook, which rewrites it on disk — commit only after the run
+  completes; (b) editing a helper you launched, e.g. `council-fanout.sh`, while its
+  `wait` loop is still live. Edit after, or copy the script and run the copy.
+  - **The danger window is only the initial top-level PARSE, which is over once the run
+    prints output / spawns workers.** So if you must commit a driver you're about to run,
+    do it *fully* first (Air-fail → re-stage → re-commit) and only then launch. The trap is
+    launching *between* a failed Air commit and its retry — the retry then rewrites the file
+    under the running job. (Survivable if parsing already finished, but don't rely on it;
+    verify with `lsof <file>` + a parse-error grep if it happens.)
+- **`tibble::tibble()` (and `mutate()`) also evaluate SEQUENTIALLY**: once a column named
+  `cell` or `bias2` exists, later arguments see that column, not the local variable of the
+  same name (`tibble(cell = cell$cell, dev = f(cell$fit_family))` errors with "$ operator
+  is invalid for atomic vectors"; `tibble(b2 = b2[1], b2_se = sd(b2[-1]))` silently gives NA).
+  Compute such values before the call or give locals distinct names.
+- **`dplyr::summarise()` evaluates its arguments SEQUENTIALLY — never reuse a
+  column name you have just overwritten.** This fails *silently*, not loudly:
+  ```r
+  summarise(coverage = mean(coverage),                  # coverage is now a SCALAR
+            mc_se = sd(coverage) / sqrt(n()))           # -> sd(scalar) = NA
+  ```
+  Two failure modes seen in one session: (a) every `mc_se` in a 108-row results
+  CSV came out `NA`; (b) in a paired-contrast script, `cov0 = mean(cov0)` before
+  `sd(coverage - cov0)` silently turned a **paired** contrast into an unpaired
+  one — the means agree, so only the SEs betray it (0.12 vs 0.31). Compute SDs/SEs
+  **before** the means, or use distinct names.
+- **Never pipe a long-running command through `grep`/`tail`/`head`.** The pipe
+  buffers all stdout until the command exits (no progress visibility), and the
+  reported exit code is the pipe's *last* stage, masking the real command's
+  failure. Instead: `cmd > /tmp/log 2>&1` (foreground or `run_in_background`),
+  then `grep`/`Read` the log file and inspect the command's own exit code.
+- **Pin BLAS threads BEFORE `future::plan(multisession)`.** If R links
+  `openblas-pthread`, then *each* worker process spawns its own thread pool — 7 workers
+  × 8 threads on 8 cores. Measured 10× slowdown (a `pffr` fit took 77 s instead of
+  7.1 s). Set the env vars before `plan()`: multisession workers are fresh R processes
+  that inherit the parent environment and read it when OpenBLAS loads.
+  **For fork-based `mclapply` even in-script `Sys.setenv()` is TOO LATE**: the parent's
+  OpenBLAS pool is sized when the library loads at R startup and forked children inherit
+  it (observed again 2026-07-11: 7 workers × 8 threads, load 54, ~4× slowdown). Pin at
+  the SHELL instead: `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 Rscript ...`.
+  ```r
+  Sys.setenv(OPENBLAS_NUM_THREADS = "1", OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
+  ```
+  Verify with `ps -eo pcpu,nlwp,comm`: workers should show `nlwp=2`, not 9+.
+- **Never pass `globals` to `furrr_options()` "just to be explicit".**
+  `furrr_options(globals = structure(TRUE, add = c("f1", "f2")))` silently breaks
+  future's recursive global auto-detection: every worker then dies with
+  `could not find function`, and even the `tryCatch` error handler fails on a missing
+  helper. Omit `globals` — auto-detection walks the call graph correctly.
+- **`R_LIBS_USER=<lib>` REPLACES the personal library** (deps vanish, `library()`
+  fails); use `R_LIBS=<lib>` (additive, prepended) for isolated test installs.

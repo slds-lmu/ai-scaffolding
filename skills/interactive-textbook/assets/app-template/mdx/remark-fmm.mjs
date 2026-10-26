@@ -13,6 +13,10 @@
  *   @theorem:4.6 / @eq:5.107 / @sec:4.3 / @num:… / @ref:…
  *                              -> <a href="#env-4.6">Theorem 4.6</a> etc. (see mdx/numbers.mjs)
  *   :k[die Spur]{#trace}       -> <ConceptLink id="trace">die Spur</ConceptLink>
+ *   :d[scaling map]{#4.6}      -> <ConceptLink id="env:4.6">  (a term the text itself defines:
+ *                                 the preview shows the definition's wording, grey underline)
+ *   @definition:x / @theorem:x … -> <ConceptLink id="env:x" href="#env-x">  (link with preview,
+ *                                 only for PREVIEW_FAMILIES, otherwise a plain <a>)
  *   :::vertiefung[Titel] …     -> <ExpandedReading title="Titel">   (optional material, collapsed)
  *   :::interaktiv[Titel] …     -> <Interaktiv title="Titel">         (widget box, core material, open)
  *   ::::beweis / :::schritt    -> <Proof> / <PStep why={…}>
@@ -54,6 +58,9 @@ import {
   resolveRef,
   splitRefs,
   mergeRefDirectives,
+  hasPreview,
+  previewId,
+  isPreviewFile,
 } from "./numbers.mjs";
 
 const JsxParser = Parser.extend(acornJsx());
@@ -102,6 +109,7 @@ const LIB = [
 /** erlaubte Attribute je Direktive (alles andere ist ein Fehler) */
 const ALLOWED_ATTRS = {
   k: ["id"],
+  d: ["id"],
   vertiefung: ["title"],
   interaktiv: ["title"],
   beweis: ["ohne-qed", "no-qed"],
@@ -178,7 +186,7 @@ function jsxAll(nodes, fail) {
 
 function jsxOne(n, fail) {
   if (!WHY_OK.has(n.type))
-    fail(n, `::why[…] unterstützt keinen Knoten vom Typ „${n.type}" — erlaubt sind Text, ` + `*kursiv*, **fett**, \`code\`, $Mathe$, Links und :k[…]{#id}`);
+    fail(n, `::why[…] unterstützt keinen Knoten vom Typ „${n.type}" — erlaubt sind Text, ` + `*kursiv*, **fett**, \`code\`, $Mathe$, Links, :k[…]{#id} und :d[…]{#id}`);
   switch (n.type) {
     case "text":
       return `{${JSON.stringify(n.value)}}`;
@@ -193,11 +201,17 @@ function jsxOne(n, fail) {
     case "inlineMath":
       return `<M>{${JSON.stringify(n.value)}}</M>`;
     case "link":
+      if (n.data?.fmmPreview)
+        return `<ConceptLink id={${JSON.stringify(n.data.fmmPreview)}} href={${JSON.stringify(n.url)}}>${jsxAll(
+          n.children,
+          fail
+        )}</ConceptLink>`;
       return `<a href={${JSON.stringify(n.url)}}>${jsxAll(n.children, fail)}</a>`;
     case "textDirective":
-      if (n.name !== "k") fail(n, `im ::why[…] ist nur :k[…]{#id} als Direktive erlaubt`);
-      if (!n.attributes?.id) fail(n, `:k[…] braucht eine Concept-ID`);
-      return `<ConceptLink id={${JSON.stringify(n.attributes.id)}}>${jsxAll(
+      if (n.name !== "k" && n.name !== "d")
+        fail(n, `inside ::why[…] only :k[…]{#id} and :d[…]{#id} are allowed as directives`);
+      if (!n.attributes?.id) fail(n, `:${n.name}[…] needs an id`);
+      return `<ConceptLink id={${JSON.stringify(n.name === "d" ? previewId(n.attributes.id) : n.attributes.id)}}>${jsxAll(
         n.children,
         fail
       )}</ConceptLink>`;
@@ -271,6 +285,10 @@ export default function remarkFmm(options = {}) {
     // Number table: read per file (mtime-cached) so a running dev server
     // picks up a regenerated table. `options.numbers` is the fixtures' hook.
     const numbers = options.numbers ?? loadNumbers(options.root ?? process.cwd());
+    // A preview copy (src/definitions/, scripts/gen-definitions.mjs) is shown
+    // in a window on the same page as its source: it must not emit anchor ids
+    // a second time. Its short @references resolve as usual (one page).
+    const inPreview = isPreviewFile(file.path);
     const rawOf = (node) => {
       const a = node.position?.start?.offset;
       const b = node.position?.end?.offset;
@@ -327,7 +345,7 @@ export default function remarkFmm(options = {}) {
 
       // unbekannte Namen zuerst: sonst laufen die Regeln unten ins Leere
       const known =
-        (node.type === "textDirective" && name === "k") ||
+        (node.type === "textDirective" && (name === "k" || name === "d")) ||
         (node.type === "textDirective" && name === "id" && parent?.type === "heading") ||
         (node.type === "leafDirective" && (name === "quelle" || name === "why")) ||
         (node.type === "containerDirective" &&
@@ -341,6 +359,25 @@ export default function remarkFmm(options = {}) {
         fail(node, `unbekannte Direktive ${sigil}${name}${hint}`, "remark-fmm:unknown-directive");
       }
       if (node.type === "textDirective" && name === "id") return; // resolved in step 4
+      if (node.type === "textDirective" && name === "d") {
+        // `{#4.6}` parses as id "4" + class "6": a source number needs id=
+        if (/^\d+$/.test(a.id ?? "") && a.class)
+          fail(
+            node,
+            `:d[…]{#${a.id}.${a.class}} — in {#…} a dot starts a class; write a source number as :d[…]{id=${a.id}.${a.class.replace(/ /g, ".")}}`,
+            "remark-fmm:d-id"
+          );
+        const env = a.id ? numbers.envs?.[a.id] : null;
+        if (!hasPreview(env))
+          fail(
+            node,
+            env
+              ? `:d[…]{#${a.id}} points at a ${env.kind} — :d only links to labelled definitions, theorems, lemmas and corollaries`
+              : `:d[…] needs the id of a definition (or theorem), e.g. :d[scaling map]{#4.6}` +
+                  (a.id ? ` — “${a.id}” is not in the number table (npm run gen:numbers)` : ""),
+            "remark-fmm:d-id"
+          );
+      }
 
       // Attribute: nur erlaubte, und Flags müssen bar sein
       for (const [key, value] of Object.entries(a)) {
@@ -471,7 +508,13 @@ export default function remarkFmm(options = {}) {
           title: null,
           children: [{ type: "text", value: r.text, position: node.position }],
           position: node.position,
-          data: { fmmRef: true, refTarget: r.target, refAnchor: r.anchor },
+          data: {
+            fmmRef: true,
+            refTarget: r.target,
+            refAnchor: r.anchor,
+            fmmPreview:
+              r.target === "env" && hasPreview(numbers.envs?.[seg.ref.id]) ? previewId(seg.ref.id) : null,
+          },
         });
       }
       parent.children.splice(index, 1, ...out);
@@ -489,7 +532,8 @@ export default function remarkFmm(options = {}) {
       if (node.type === "textDirective") {
         if (!a.id)
           fail(node, `:k[…] braucht eine Concept-ID, z.B. :k[die Spur]{#trace}`, "remark-fmm:k-id");
-        parent.children[index] = el("ConceptLink", [attr("id", a.id)], node.children, node, false);
+        const id = name === "d" ? previewId(a.id) : a.id;
+        parent.children[index] = el("ConceptLink", [attr("id", id)], node.children, node, false);
         return;
       }
 
@@ -607,6 +651,19 @@ export default function remarkFmm(options = {}) {
       }
     });
 
+    /* ---- 2b. References with preview -> <ConceptLink href> --------- */
+    // (those inside ::why[…] were already converted by jsxAll())
+    visit(tree, "link", (node, index, parent) => {
+      if (!node.data?.fmmPreview) return;
+      parent.children[index] = el(
+        "ConceptLink",
+        [attr("id", node.data.fmmPreview), attr("href", node.url)],
+        node.children,
+        node,
+        false
+      );
+    });
+
     /* ---- 3. Mathematik -------------------------------------------- */
     const eqTags = new Map();
     visit(tree, (node, index, parent) => {
@@ -631,7 +688,7 @@ export default function remarkFmm(options = {}) {
         if (p.fixed) {
           // a number from the SOURCE is its own id, so nothing is looked up
           tag = p.id;
-          attrs.push(attr("id", `eq-${p.id}`));
+          if (!inPreview) attrs.push(attr("id", `eq-${p.id}`));
         } else {
           const entry = numbers.eqs?.[p.id];
           if (!entry)
@@ -641,7 +698,7 @@ export default function remarkFmm(options = {}) {
               "remark-fmm:unknown-id"
             );
           tag = entry.num;
-          attrs.push(attr("id", entry.anchor));
+          if (!inPreview) attrs.push(attr("id", entry.anchor));
         }
         if (eqTags.has(p.id))
           fail(node, `equation id “${p.id}” is used twice`, "remark-fmm:duplicate-eq");
