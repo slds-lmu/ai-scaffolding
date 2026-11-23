@@ -46,10 +46,10 @@ Without this, downstream code gets polluted RNG state.
 - "The bug was on line 347 of sim-dgp.R" — line numbers change
 - "Took 3.2 hours to run Study 3" — timing is session-specific
 - "RcppArmadillo 15+ needs flag X in Makevars" — one-time migration, won't recur
-- "Push to fabian-s/registr fork, then PR to upstream" — repo-specific config
+- "Push to your-account/project fork, then PR to upstream" — repo-specific config
 
 ### Project config masquerading as lessons
-- "origin = julia-wrobel/registr, fork = fabian-s/registr" — just a fact about this repo
+- "origin = upstream/project, fork = your-account/project" — just a fact about this repo
 - "rhub platform ubuntu-clang maps to r-devel-linux-x86_64-debian-clang" — lookup table, not insight
 - "Rd cross-refs need \link[pkg:topic]{text}" — easily found in roxygen2 docs
 

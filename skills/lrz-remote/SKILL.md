@@ -22,28 +22,33 @@ ssh lrz "hostname"
 If this hangs or errors, tell the user:
 > "Your SSH tunnel to LRZ doesn't seem to be active. Please open a terminal and run `ssh lrz` to authenticate (you'll need your password + 2FA). Leave that session open, then come back here."
 
-## User Configuration
+## Runtime Configuration
 
-Confirmed values — do not re-ask for these:
+Keep personal and account-specific values out of this shared skill. Resolve them
+from the authenticated session when needed:
 
-| Setting | Value |
+| Setting | Source |
 |---|---|
-| LRZ username | `ri68suz2` |
 | SSH alias | `lrz` |
-| Home directory | `/dss/dsshome1/lxc04/ri68suz2` |
-| Email for SLURM | `fabian.scheipl@stat.uni-muenchen.de` |
-| R module | `r/4.3.3-gcc13-mkl` |
-| Active user R lib | `~/R/x86_64-pc-linux-gnu-library/4.3/` (first in `.libPaths()` — `.Rprofile` is version-dynamic) |
+| LRZ username | `ssh lrz 'id -un'` |
+| Home directory | `ssh lrz 'printf "%s\n" "$HOME"'` |
+| Scratch/work directories | `ssh lrz 'printf "%s\n" "$SCRATCH_DSS" "$WORK"'` |
+| Project account | `ssh lrz 'sacctmgr show assoc user="$USER" format=Account -n'` |
+| Active user R library | Inspect `.libPaths()` as described below |
+| Email for SLURM | Read `LRZ_SLURM_EMAIL` locally, or ask the user if it is unset |
 
-To discover scratch/work dirs if needed: `ssh lrz "echo \$SCRATCH_DSS \$WORK"`
-To discover project account if needed: `ssh lrz "sacctmgr show assoc user=\$USER format=Account -n"`
+Treat resolved usernames, email addresses, home paths, and project accounts as
+session-only data. Do not add them to this skill, examples, generated reusable
+templates, logs committed to a repository, or memory files. Never guess an email
+address from a person's name or login. Use `{{EMAIL}}` in templates until a job is
+prepared for submission.
 
 ## Local ↔ Remote Directory Convention
 
 Local project directories and their LRZ counterparts **share the same folder name** and are typically clones of the same git repository. Example:
 
-- Local: `/home/fabians/myproject/`
-- Remote: `/dss/dsshome1/lxc04/ri68suz2/myproject/`
+- Local: `$HOME/myproject/`
+- Remote: `~/myproject/`
 
 **Prefer `git pull` over `scp` to sync script changes** when both sides are git clones — it's cleaner and keeps history intact. Use `scp` only for data files or when the LRZ copy isn't a git repo.
 
@@ -457,11 +462,12 @@ let the queue work rather than resubmitting, which makes it worse.
 
 CoolMUC-4 (`cm4`, `serial`, `inter`) has **no GPU partitions** (`sinfo --clusters=all` shows GRES `(null)`).
 GPUs live on the separate **LRZ AI Systems**: host `login.ai.lrz.de`, own SLURM (no `--clusters`), needs
-eduVPN/MWN. Same `ri68suz2` account; also the backend of the RStudio server at login.ai.lrz.de. Tested 2026-10-06.
+eduVPN/MWN. Same LRZ account as CoolMUC-4 (`<user>` below = `ssh lrz 'id -un'`); also the backend of the
+RStudio server at login.ai.lrz.de. Tested 2026-10-06.
 
 - **Login**: password only (no key set up), so BatchMode fails. Accept the host key once in a REAL terminal
-  (`!` shell has no TTY). Then user opens a master: `ssh -M -S ~/.ssh/cm-ai -o ControlPersist=4h -fN ri68suz2@login.ai.lrz.de`;
-  Claude uses `ssh -S ~/.ssh/cm-ai ri68suz2@login.ai.lrz.de "..."` and `scp -o ControlPath=$HOME/.ssh/cm-ai`.
+  (`!` shell has no TTY). Then user opens a master: `ssh -M -S ~/.ssh/cm-ai -o ControlPersist=4h -fN <user>@login.ai.lrz.de`;
+  Claude uses `ssh -S ~/.ssh/cm-ai <user>@login.ai.lrz.de "..."` and `scp -o ControlPath=$HOME/.ssh/cm-ai`.
 - **Partitions**: `sinfo -o '%P %G %D %t %C'`. `lrz-*` (v100x2, dgx-1-v100x8, hgx-a100-80x4, hgx-h100-94x4, ...)
   work; `mcml-*` need `--qos=mcml`, which this account lacks (`sacctmgr`: QoS `cpu,gpu,mig`; dry-run
   `sbatch --test-only --qos=mcml` -> "Invalid qos specification").
