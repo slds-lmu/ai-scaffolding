@@ -17,6 +17,7 @@
       agy reports as status SUCCESS with exit 0; outer kill; stream errors) gets a
       first-line marker "[GEMINI PARTIAL OUTPUT: ...]" plus whatever text was
       streamed, or "[GEMINI PRODUCED NO OUTPUT: ...]" plus diagnostics.
+      Exit 0: complete. Exit 2: failed on exhausted quota. Exit 1: other failure.
 
 Why (verified 2026-10-16, agy 1.4.0, Gemini 4 Argon): agy reads files through
 its agent loop, one model turn (5-60 s at High effort) per read, so repo-backed
@@ -196,6 +197,15 @@ def cmd_extract(a):
         reasons.append("agy is not signed in: run `agy` once interactively, then re-run")
 
     complete = bool(response.strip()) and not reasons
+    # A 429 that agy recovered from leaves a complete answer: that is not a quota failure.
+    quota = not complete and re.search(
+        r"RESOURCE_EXHAUSTED|Individual quota", stderr + str((result or {}).get("error") or "")
+    )
+    if quota:
+        reasons.append(
+            "agy quota for this model family is exhausted (the Gemini app's usage page does "
+            "not show this; other families may still work)"
+        )
     with open(a.out, "w", encoding="utf-8") as out:
         if complete:
             out.write(response)
@@ -213,7 +223,7 @@ def cmd_extract(a):
             if tail or err_events:
                 out.write("--- agy stderr / error events (tail) ---\n")
                 out.write("\n".join(err_events + tail) + "\n")
-    return 1
+    return 2 if quota else 1
 
 
 def main():

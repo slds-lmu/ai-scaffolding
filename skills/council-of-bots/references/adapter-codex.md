@@ -10,8 +10,11 @@ Recommended external launcher:
 
 ```bash
 bash ~/.claude/skills/council-of-bots/scripts/council-fanout.sh \
-  /tmp/${ID}-context.md --claude-via-cli [--no-codex] [--no-gemini] [--no-claude]
+  /tmp/${ID}-context.md --claude-via-cli [--no-codex] [--no-gemini] [--no-claude] \
+  [--codex-model MODEL] [--codex-effort LEVEL] [--gemini-model NAME] [--gemini-effort LEVEL]
 ```
+
+Choose model and effort per review by task difficulty (table in SKILL.md).
 
 If the context references files on disk, add one or more:
 
@@ -21,9 +24,8 @@ If the context references files on disk, add one or more:
 
 so the Claude CLI leg can read those files.
 
-The Claude CLI leg runs on `fable` by default (the launcher's `CLAUDE_MODEL`
-default); pass `--claude-model opus` or set `COUNCIL_CLAUDE_MODEL` if that tier is
-not available to the account.
+The Claude CLI leg runs on `opus` by default (the launcher's `CLAUDE_MODEL`
+default); pass `--claude-model <alias>` or set `COUNCIL_CLAUDE_MODEL` to override.
 
 ## Background Pattern
 

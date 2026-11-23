@@ -26,7 +26,7 @@ Options:
 
 Examples:
   claude-run.sh --prompt-text "Summarize this file" --target ./R/file.R
-  claude-run.sh --prompt-file /tmp/review.md --target ./R --model fable
+  claude-run.sh --prompt-file /tmp/review.md --target ./R --model opus
 EOF
 }
 

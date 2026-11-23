@@ -10,7 +10,8 @@
 # Usage:
 #   council-fanout.sh <context-file> [--no-codex] [--no-gemini] [--no-claude]
 #                    [--claude-via-cli] [--add-dir DIR]...
-#                    [--codex-effort L] [--gemini-effort L] [--timeout SECONDS]
+#                    [--codex-model M] [--codex-effort L]
+#                    [--gemini-model NAME] [--gemini-effort L] [--timeout SECONDS]
 #                    [--gemini-inline FILE]... [--no-gemini-inline]
 #                    [--gemini-inline-max KB]
 #
@@ -48,26 +49,30 @@ fi
 # Model for the Codex leg: COUNCIL_CODEX_MODEL, else the `model` in
 # ~/.codex/config.toml (kept current by the user), else a last-known fallback.
 # A hardcoded pin went stale here (gpt-5.6-terra while config had moved on).
-# Effort is chosen by the CALLER per review (--codex-effort low|medium|high|xhigh).
+# Effort is chosen by the CALLER per review (--codex-effort low|medium|high|xhigh|max).
 # It must not silently inherit config.toml's model_reasoning_effort, which is tuned
 # for interactive use ("low") and once produced a shallow review that never opened
 # the referenced files. If the caller passes nothing, use "high".
 CODEX_CONFIG_MODEL=$(sed -n 's/^model *= *"\(.*\)"/\1/p' "$HOME/.codex/config.toml" 2>/dev/null | head -n 1)
-CODEX_MODEL="${COUNCIL_CODEX_MODEL:-${CODEX_CONFIG_MODEL:-gpt-6.1-sol}}"
+CODEX_MODEL="${COUNCIL_CODEX_MODEL:-${CODEX_CONFIG_MODEL:-gpt-6.2-sol}}"
 CODEX_EFFORT="${COUNCIL_CODEX_EFFORT:-high}"
-# Gemini effort, also chosen by the caller (--gemini-effort low|medium|high).
+# Gemini effort, also chosen by the caller (--gemini-effort low|medium|high|xhigh|max).
 # agy encodes effort in the model label, so this selects the strongest family's
-# variant at that effort (xhigh/max map to high). Default "high".
+# variant at that effort, or the family's nearest effort if it lacks that variant.
+# Default "high".
 GEMINI_EFFORT="${COUNCIL_GEMINI_EFFORT:-high}"
+# Gemini model, chosen by the caller by task difficulty (--gemini-model): "strongest"
+# (default), or text in an `agy models` label such as "flash" or "argon".
+GEMINI_CHOICE="strongest"
 
 RUN_CODEX=1
 RUN_GEMINI=1
 RUN_CLAUDE=1
 CLAUDE_VIA_CLI=0
 # Claude CLI leg (only used with --claude-via-cli, i.e. on a Codex host). Default to
-# the strongest tier: a review is judgment work and the council exists to catch what
+# opus (Anthropic's recommended default): a review is judgment work and the council exists to catch what
 # the working model missed. Override with COUNCIL_CLAUDE_MODEL or --claude-model.
-CLAUDE_MODEL="${COUNCIL_CLAUDE_MODEL:-fable}"
+CLAUDE_MODEL="${COUNCIL_CLAUDE_MODEL:-opus}"
 ADD_DIRS=()
 # Gemini inlining (see the Gemini section): auto-inline text files named in the
 # context, plus any --gemini-inline files, up to GEMINI_INLINE_KB in total.
@@ -101,12 +106,20 @@ while [ $# -gt 0 ]; do
       ADD_DIRS+=("${2:?Missing value for --add-dir}")
       shift 2
       ;;
+    --codex-model)
+      CODEX_MODEL="${2:?Missing value for --codex-model}"
+      shift 2
+      ;;
+    --gemini-model)
+      GEMINI_CHOICE="${2:?Missing value for --gemini-model (strongest, or text in an agy models label)}"
+      shift 2
+      ;;
     --codex-effort)
-      CODEX_EFFORT="${2:?Missing value for --codex-effort (low|medium|high|xhigh)}"
+      CODEX_EFFORT="${2:?Missing value for --codex-effort (low|medium|high|xhigh|max)}"
       shift 2
       ;;
     --gemini-effort)
-      GEMINI_EFFORT="${2:?Missing value for --gemini-effort (low|medium|high)}"
+      GEMINI_EFFORT="${2:?Missing value for --gemini-effort (low|medium|high|xhigh|max)}"
       shift 2
       ;;
     --gemini-inline)
@@ -136,15 +149,38 @@ while [ $# -gt 0 ]; do
 done
 
 # Validate effort levels up front, so a typo cannot abort the run after one bot
-# has already been launched in the background.
-case "$CODEX_EFFORT" in
-  minimal | low | medium | high | xhigh) ;;
-  *) echo "ERROR: --codex-effort must be minimal|low|medium|high|xhigh, got '${CODEX_EFFORT}'" >&2; exit 1 ;;
-esac
-case "$(printf '%s' "$GEMINI_EFFORT" | tr '[:upper:]' '[:lower:]')" in
-  low | medium | high | xhigh | max) ;;
-  *) echo "ERROR: --gemini-effort must be low|medium|high (xhigh/max = high), got '${GEMINI_EFFORT}'" >&2; exit 1 ;;
-esac
+# has already been launched in the background. Codex's `ultra` (0.171: max reasoning
+# plus automatic task delegation) is left out on purpose: a reviewer should not
+# spawn its own sub-agents.
+# Only enabled legs are checked, so a stale COUNCIL_*_EFFORT cannot abort the other leg.
+CODEX_EFFORT=$(printf '%s' "$CODEX_EFFORT" | tr '[:upper:]' '[:lower:]')
+if [ "$RUN_CODEX" -eq 1 ]; then
+  case "$CODEX_EFFORT" in
+    low | medium | high | xhigh | max) ;;
+    *) echo "ERROR: --codex-effort must be low|medium|high|xhigh|max, got '${CODEX_EFFORT}'" >&2; exit 1 ;;
+  esac
+fi
+if [ "$RUN_GEMINI" -eq 1 ]; then
+  case "$(printf '%s' "$GEMINI_EFFORT" | tr '[:upper:]' '[:lower:]')" in
+    low | medium | high | xhigh | max) ;;
+    *) echo "ERROR: --gemini-effort must be low|medium|high|xhigh|max, got '${GEMINI_EFFORT}'" >&2; exit 1 ;;
+  esac
+fi
+
+# Resolve the Gemini model up front too: a name that matches nothing must not abort
+# the run after Codex has already been launched.
+GEMINI_PICKER="$HOME/.claude/skills/gemini-cli/scripts/pick-gemini-model.sh"
+GEMINI_MODEL=""
+if [ "$RUN_GEMINI" -eq 1 ] && command -v agy &>/dev/null; then
+  if [ -n "${COUNCIL_GEMINI_MODEL:-}" ]; then
+    GEMINI_MODEL="$COUNCIL_GEMINI_MODEL"
+  elif [ "$GEMINI_CHOICE" = "strongest" ]; then
+    GEMINI_MODEL=$(bash "$GEMINI_PICKER" "$GEMINI_EFFORT")
+  elif ! GEMINI_MODEL=$(bash "$GEMINI_PICKER" "$GEMINI_EFFORT" "" "$GEMINI_CHOICE"); then
+    echo "ERROR: --gemini-model '${GEMINI_CHOICE}' matches no model in \`agy models\`" >&2
+    exit 1
+  fi
+fi
 
 # Dynamic timeout: 600s base + 2s per KB of context, capped at 1200s
 # Bots often need to read large files from disk (not just the context),
@@ -205,16 +241,16 @@ if [ "$RUN_CODEX" -eq 1 ] && command -v codex &>/dev/null; then
   (
     # stderr goes to ERRFILE, not /dev/null: an unknown --model name otherwise fails
     # SILENTLY, leaving an empty review that reads like "the bot had no findings".
-    # `--sandbox workspace-write` replaces the deprecated `--full-auto` (codex-cli
-    # 0.144 warns on it). Same effect: no per-action approval prompt, writes confined
+    # `--sandbox workspace-write` replaces `--full-auto` (deprecated in codex-cli
+    # 0.144, rejected by 0.171). Same effect: no per-action approval prompt, writes confined
     # to the workdir (-C /tmp), which is all a read-only reviewer needs.
-    if echo "$FULL_PROMPT" | timeout "$BOT_TIMEOUT" codex exec --sandbox workspace-write \
+    if echo "$FULL_PROMPT" | timeout -k 30 "$BOT_TIMEOUT" codex exec --sandbox workspace-write \
         -m "$CODEX_MODEL" -c "model_reasoning_effort=\"${CODEX_EFFORT}\"" \
         --skip-git-repo-check -C /tmp -o "$OUTFILE" - 2>"$ERRFILE"; then
       sanitize_output "$OUTFILE"
     else
       EXIT_CODE=$?
-      if [ $EXIT_CODE -eq 124 ]; then
+      if [ $EXIT_CODE -eq 124 ] || [ $EXIT_CODE -eq 137 ]; then  # 137: SIGKILL from timeout -k
         {
           echo "[TIMEOUT after ${BOT_TIMEOUT}s, model=${CODEX_MODEL}, effort=${CODEX_EFFORT}]"
           echo "--- partial transcript tail (stderr) ---"
@@ -305,16 +341,16 @@ fi
 #     result.response glues both attempts together; the helper drops the aborted one.
 #   * There is no internal cap: "after 15m0s" in a log was the 900 s floor below.
 #   * reasoning effort is baked into the model label, e.g. "(High)" / "(Low)".
-# The model defaults to the strongest Gemini that `agy models` currently lists
-# (skills/gemini-cli/scripts/pick-gemini-model.sh). Override with
-# COUNCIL_GEMINI_MODEL; list options with `agy models`.
+#   * Quotas differ by model family, and the Gemini app's usage page does not show them.
+# The caller picks the model with --gemini-model (default: the strongest Gemini that
+# `agy models` lists, via skills/gemini-cli/scripts/pick-gemini-model.sh).
+# COUNCIL_GEMINI_MODEL forces one exact label and disables the quota fallback.
 if [ "$RUN_GEMINI" -eq 1 ] && command -v agy &>/dev/null; then
   OUTFILE="${PREFIX}-gemini.txt"
   ERRLOG="${PREFIX}-gemini-stderr.log"
   STREAMLOG="${PREFIX}-gemini.ndjson"
   STDINMSG="${PREFIX}-gemini-prompt.ndjson"
   GEMINI_HELPER="$(dirname "$0")/gemini-leg.py"
-  GEMINI_MODEL="${COUNCIL_GEMINI_MODEL:-$(bash "$HOME/.claude/skills/gemini-cli/scripts/pick-gemini-model.sh" "$GEMINI_EFFORT")}"
   # Floor of 900 s: the final answer alone takes 2-4 min at High effort.
   GEMINI_TIMEOUT=$(( BOT_TIMEOUT < 900 ? 900 : BOT_TIMEOUT ))
   INLINE_ARGS=(--auto "$GEMINI_INLINE_AUTO" --budget-kb "$GEMINI_INLINE_KB")
@@ -328,26 +364,78 @@ if [ "$RUN_GEMINI" -eq 1 ] && command -v agy &>/dev/null; then
     rm -f "$BASEFILE"
     echo "Launching Gemini (agy: ${GEMINI_MODEL}, timeout ${GEMINI_TIMEOUT}s; ${INLINE_SUMMARY})..."
     (
-      AGY_ARGS=(--model "$GEMINI_MODEL" --input-format stream-json
-                --output-format stream-json --dangerously-skip-permissions
-                --print-timeout "${GEMINI_TIMEOUT}s")
-      for dir in "${ADD_DIRS[@]}"; do
-        AGY_ARGS+=(--add-dir "$dir")
-      done
-      # `-p ""` (explicitly empty, last): a bare -p takes the next flag as its prompt.
-      # Outer hard-kill sits a little past agy's own --print-timeout so the CLI
-      # can flush a partial answer before SIGTERM.
-      timeout "$(( GEMINI_TIMEOUT + 30 ))" agy "${AGY_ARGS[@]}" -p "" \
-        < "$STDINMSG" > "$STREAMLOG" 2> "$ERRLOG"
-      AGY_EXIT=$?
-      if python3 -I "$GEMINI_HELPER" extract --ndjson "$STREAMLOG" --stderr "$ERRLOG" \
+      # Quota fallback: agy's quotas differ by model family (2026-11-04: Argon High and
+      # Low both 429, Flash fine, on one login), so a RESOURCE_EXHAUSTED moves down to the next
+      # family and the review says so on its first line. An explicit COUNCIL_GEMINI_MODEL
+      # is the caller's choice and is not overridden.
+      ATTEMPT_MODEL="$GEMINI_MODEL"
+      EXCLUDE=""
+      FALLBACK_NOTE=""
+      while :; do
+        AGY_ARGS=(--model "$ATTEMPT_MODEL" --input-format stream-json
+                  --output-format stream-json --dangerously-skip-permissions
+                  --print-timeout "${GEMINI_TIMEOUT}s")
+        for dir in "${ADD_DIRS[@]}"; do
+          AGY_ARGS+=(--add-dir "$dir")
+        done
+        # A retry must not see the previous attempt's "result" event in the loop below.
+        : > "$STREAMLOG"
+        # `-p ""` (explicitly empty, last): a bare -p takes the next flag as its prompt.
+        # Outer hard-kill sits a little past agy's own --print-timeout so the CLI
+        # can flush a partial answer before SIGTERM. agy ignores SIGTERM, hence -k
+        # (SIGKILL 30 s later). It can also hang after writing its final "result"
+        # event (2026-10-28: answer done after 507 s, process still alive after
+        # 69 min), so the loop below kills it 10 s after that event appears.
+        timeout -k 30 "$(( GEMINI_TIMEOUT + 30 ))" agy "${AGY_ARGS[@]}" -p "" \
+          < "$STDINMSG" > "$STREAMLOG" 2> "$ERRLOG" &
+        TIMEOUT_PID=$!
+        KILLED_AFTER_RESULT=0
+        while kill -0 "$TIMEOUT_PID" 2>/dev/null; do
+          if grep -q '^{"event":"result"' "$STREAMLOG" 2>/dev/null; then
+            sleep 10
+            if kill -0 "$TIMEOUT_PID" 2>/dev/null; then
+              pkill -KILL -P "$TIMEOUT_PID" 2>/dev/null
+              KILLED_AFTER_RESULT=1
+            fi
+            break
+          fi
+          sleep 5
+        done
+        wait "$TIMEOUT_PID" 2>/dev/null
+        AGY_EXIT=$?
+        [ "$KILLED_AFTER_RESULT" -eq 1 ] && AGY_EXIT=0
+        # timeout -k reports a SIGKILLed child as 137; treat it like a timeout (124).
+        [ "$AGY_EXIT" -eq 137 ] && AGY_EXIT=124
+        python3 -I "$GEMINI_HELPER" extract --ndjson "$STREAMLOG" --stderr "$ERRLOG" \
           --out "$OUTFILE" --exit "$AGY_EXIT" --timeout "$GEMINI_TIMEOUT" \
-          --model "$GEMINI_MODEL"; then
-        sanitize_output "$OUTFILE"
-        rm -f "$ERRLOG" "$STDINMSG"
-      fi
-      # On failure keep $ERRLOG, $STREAMLOG (agy's event transcript) and
-      # $STDINMSG (the exact prompt) for diagnosis.
+          --model "$ATTEMPT_MODEL"
+        EXTRACT_RC=$?
+        if [ "$EXTRACT_RC" -eq 0 ]; then
+          sanitize_output "$OUTFILE"
+          rm -f "$ERRLOG" "$STDINMSG"
+          if [ -n "$FALLBACK_NOTE" ]; then
+            printf '[GEMINI FALLBACK: %s; this review is from %s instead]\n\n' \
+              "$FALLBACK_NOTE" "$ATTEMPT_MODEL" | cat - "$OUTFILE" > "${OUTFILE}.tmp" &&
+              mv "${OUTFILE}.tmp" "$OUTFILE"
+          fi
+          break
+        fi
+        if [ -z "${COUNCIL_GEMINI_MODEL:-}" ] && [ "$EXTRACT_RC" -eq 2 ]; then
+          EXCLUDE="${EXCLUDE:+$EXCLUDE|}${ATTEMPT_MODEL% (*}"
+          NEXT_MODEL=$(bash "$GEMINI_PICKER" "$GEMINI_EFFORT" "$EXCLUDE")
+          if [ -n "$NEXT_MODEL" ]; then
+            RESETS=$(grep -m 1 -oE 'Resets in [0-9hms]+' "$ERRLOG")
+            FALLBACK_NOTE="${FALLBACK_NOTE:+$FALLBACK_NOTE, }${ATTEMPT_MODEL} quota exhausted${RESETS:+ (${RESETS,})}"
+            echo "  ! gemini: ${ATTEMPT_MODEL} quota exhausted; retrying on ${NEXT_MODEL}"
+            ATTEMPT_MODEL="$NEXT_MODEL"
+            continue
+          fi
+        fi
+        # On failure keep $ERRLOG, $STREAMLOG (agy's event transcript) and
+        # $STDINMSG (the exact prompt) for diagnosis.
+        [ -n "$FALLBACK_NOTE" ] && printf '\n[Earlier attempts: %s]\n' "$FALLBACK_NOTE" >> "$OUTFILE"
+        break
+      done
       [ -s "$OUTFILE" ] || echo "[GEMINI PRODUCED NO OUTPUT: result extraction failed; see ${STREAMLOG}]" > "$OUTFILE"
     ) &
     PIDS+=($!)
@@ -384,6 +472,10 @@ for i in "${!PIDS[@]}"; do
       FAILURES=$((FAILURES + 1))
     elif [ "$SIZE" -gt 10 ]; then
       echo "  + ${bot} done ($(wc -l < "$OUTFILE") lines)"
+      # Another model answered: the host must weigh and report the review accordingly.
+      if head -n 1 "$OUTFILE" | grep -q '^\[GEMINI FALLBACK'; then
+        echo "    ! $(head -n 1 "$OUTFILE")"
+      fi
     else
       echo "  x ${bot} returned empty/near-empty output"
       FAILURES=$((FAILURES + 1))

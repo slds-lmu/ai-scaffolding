@@ -9,17 +9,18 @@ Run the external launcher for Codex and Gemini:
 ```bash
 bash ~/.claude/skills/council-of-bots/scripts/council-fanout.sh \
   /tmp/${ID}-context.md [--no-codex] [--no-gemini] [--no-claude] \
-  [--codex-effort LEVEL] [--gemini-effort LEVEL] [--timeout SECONDS] [--add-dir DIR]... \
+  [--codex-model MODEL] [--codex-effort LEVEL] [--gemini-model NAME] [--gemini-effort LEVEL] \
+  [--timeout SECONDS] [--add-dir DIR]... \
   [--gemini-inline FILE]... [--no-gemini-inline] [--gemini-inline-max KB]
 ```
 
-Use `--timeout` (a flag, since `VAR=x bash ...` prefixes break the permission rule) for
+Choose model and effort per review by task difficulty (table in SKILL.md). Use `--timeout` (a flag, since `VAR=x bash ...` prefixes break the permission rule) for
 reviews in which the bots read files from disk; see SKILL.md. Name review files by full
 absolute path in the context so the Gemini leg can inline them (SKILL.md, Step 1).
 
 Launch the Claude leg as a background Agent in the same response unless Claude was
-disabled, with `model: "fable"` (the strongest tier; fall back to `opus` if the
-session cannot run it) and `run_in_background: true`.
+disabled, with `model: "opus"` (Anthropic's recommended default; `fable` is
+stronger but costs about twice as much) and `run_in_background: true`.
 
 ## Why
 

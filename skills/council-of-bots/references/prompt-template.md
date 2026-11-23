@@ -66,7 +66,7 @@ The prompt contract stays the same even though the Claude launch mechanism chang
 
 - Codex capture uses `codex exec -o` because stdout capture can be empty otherwise.
 - The Codex leg uses the `model` from `~/.codex/config.toml` (override per run with
-  `COUNCIL_CODEX_MODEL=...`); the caller picks reasoning effort per review with
+  `--codex-model`); the caller picks reasoning effort per review with
   `--codex-effort` (default `high`, never the config's interactive setting).
   Lesson (2026-10-16): a hardcoded model pin went stale, and the config's interactive
   effort (`low`) leaked into the council, giving a shallow review that never opened the
@@ -74,8 +74,8 @@ The prompt contract stays the same even though the Claude launch mechanism chang
   captured to `/tmp/${ID}-codex.err`, and an unknown model name or an empty review is
   written into the output file as `[CODEX FAILED: ...]` / `[CODEX PRODUCED NO OUTPUT]` —
   never swallowed, since a silent empty file reads like "the bot found nothing".
-- Gemini runs via the Antigravity `agy` CLI in print mode, with `--model` set to the
-  strongest Gemini listed by `agy models` (`skills/gemini-cli/scripts/pick-gemini-model.sh`)
+- Gemini runs via the Antigravity `agy` CLI in print mode, with `--model` set by the
+  caller's `--gemini-model` and `--gemini-effort` (`skills/gemini-cli/scripts/pick-gemini-model.sh`)
   and `--dangerously-skip-permissions` (required; without it the agent loop blocks on
   a tool-permission prompt). The legacy `gemini` CLI was dropped after Google revoked
   its free Code Assist tier. Verified 2026-10-16 (agy 1.4.0, Gemini 4 Argon):
