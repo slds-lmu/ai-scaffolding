@@ -132,7 +132,7 @@ def cmd_prompt(a):
 
 
 def cmd_extract(a):
-    result, err_events = None, []
+    result, err_events, err_full = None, [], []
     steps = {}  # step_index -> {"type", "state", "text"}
     ntools, last_tool = 0, ""
     try:
@@ -158,7 +158,8 @@ def cmd_extract(a):
                 elif kind == "result":
                     result = ev.get("result", {})
                 elif kind == "error":
-                    err_events.append(json.dumps(ev)[:300])
+                    err_full.append(json.dumps(ev))
+                    err_events.append(err_full[-1][:300])
     except OSError:
         pass
 
@@ -198,9 +199,14 @@ def cmd_extract(a):
 
     complete = bool(response.strip()) and not reasons
     # A 429 that agy recovered from leaves a complete answer: that is not a quota failure.
-    quota = not complete and re.search(
-        r"RESOURCE_EXHAUSTED|Individual quota", stderr + str((result or {}).get("error") or "")
+    # The quota text can arrive on stderr, in result.error, or only in stream error
+    # events / error_message steps; check all of them.
+    err_text = "\n".join(
+        [stderr, str((result or {}).get("error") or "")]
+        + err_full
+        + [s["text"] for s in steps.values() if s["type"] == "error_message"]
     )
+    quota = not complete and re.search(r"RESOURCE_EXHAUSTED|Individual quota", err_text)
     if quota:
         reasons.append(
             "agy quota for this model family is exhausted (the Gemini app's usage page does "

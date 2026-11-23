@@ -394,7 +394,9 @@ if [ "$RUN_GEMINI" -eq 1 ] && command -v agy &>/dev/null; then
           if grep -q '^{"event":"result"' "$STREAMLOG" 2>/dev/null; then
             sleep 10
             if kill -0 "$TIMEOUT_PID" 2>/dev/null; then
-              pkill -KILL -P "$TIMEOUT_PID" 2>/dev/null
+              # timeout leads its own process group; killing the group also takes
+              # agy's descendants, which `pkill -P` (direct children only) orphaned.
+              kill -KILL -- -"$TIMEOUT_PID" 2>/dev/null
               KILLED_AFTER_RESULT=1
             fi
             break
