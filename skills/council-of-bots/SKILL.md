@@ -78,17 +78,30 @@ Launch in one response:
 ```bash
 bash ~/.claude/skills/council-of-bots/scripts/council-fanout.sh \
   /tmp/${ID}-context.md [--no-codex] [--no-gemini] [--no-claude] \
-  [--codex-effort low|medium|high|xhigh] [--gemini-effort low|medium|high] \
+  [--codex-model MODEL] [--codex-effort low|medium|high|xhigh|max] \
+  [--gemini-model strongest|flash|argon|...] [--gemini-effort low|medium|high|xhigh|max] \
   [--timeout SECONDS] [--add-dir DIR]... \
   [--gemini-inline FILE]... [--no-gemini-inline] [--gemini-inline-max KB]
 ```
 
-Choose `--codex-effort` and `--gemini-effort` per review; both default to `high`
-(Codex never inherits the interactive setting in config.toml). Gemini's effort is
-encoded in the agy model label, so the flag selects the strongest Gemini family's
-`(Low|Medium|High)` variant; `xhigh` and `max` map to High. Use `medium` for a quick sanity check of a short text or
-small diff, `high` for normal reviews, and `xhigh` only for deep, high-stakes reviews
-of derivations or large codebases (much slower).
+Pass model and effort for every review, chosen by how hard the task is and how costly
+a miss would be. Argon's quota is scarce (about 20 runs lasted two days, see the Gemini
+CLI skill), and the council gets called often, so the default for routine work is Flash:
+
+| Review | Gemini | Codex effort |
+|---|---|---|
+| Quick sanity check: short text, small diff | `--gemini-model flash --gemini-effort medium` | `medium` |
+| Normal review: code, plan, draft, intermediate round | `--gemini-model flash --gemini-effort high` | `high` |
+| Hard or high-stakes: derivations, statistical methods, subtle bugs, final round before submission or release | `--gemini-model strongest --gemini-effort high` | `high`, or `xhigh` for large codebases and derivations (much slower) |
+
+Say which row you chose in the launch message so the user can overrule it. If unsure
+between two rows, take the harder one for final results and the easier one for work in
+progress. Flags left out default to the strongest Gemini, the `model` in
+`~/.codex/config.toml`, and `high` effort for both (Codex never inherits the interactive
+effort in config.toml). `--gemini-model` takes `strongest` or any text in an `agy models`
+label; `--codex-model` takes a Codex model name and is rarely needed. Gemini's `xhigh`
+and `max` pick the family's `(XHigh)` (or `(Max)`) variant if it has one, else its
+nearest effort.
 
 When the bots must read files or a repo from disk, pass `--timeout 1500` or so.
 Codex at high/xhigh is slow, and Gemini still reads non-inlined material (git
@@ -100,13 +113,18 @@ Codex leg includes the tail of its partial transcript; a Gemini leg that ran out
 time is marked `[GEMINI PARTIAL OUTPUT: ...]` (streamed text salvaged) or
 `[GEMINI PRODUCED NO OUTPUT: ...]`, and its transcript stays in `/tmp/${ID}-gemini.ndjson`.
 
+If the chosen Gemini's quota is exhausted, the launcher reruns on the strongest remaining
+model and the review starts with `[GEMINI FALLBACK: ...]`. Tell the user which model
+answered, and give the review less weight if that model is weaker. A quota message concerns that model family in agy, not the
+user's Gemini limits overall (see the Gemini CLI skill, "Quota errors").
+
 2. Launch the Claude leg as a background Agent in the same response unless the user passed `--no-claude`.
 
 The Agent should:
 
-- run on the strongest model available (`model: "fable"`; a review is judgment
-  work, and a second opinion from a weaker model than the one that did the work
-  adds little)
+- run on a strong model (`model: "opus"`, Anthropic's recommended default; `fable`
+  is stronger but costs about twice as much). A review is judgment work, and a second
+  opinion from a weaker model than the one that did the work adds little
 - read `/tmp/${ID}-context.md`
 - apply the shared review prompt from [prompt-template.md](references/prompt-template.md)
 - return its review directly to the main conversation

@@ -17,6 +17,7 @@
       agy reports as status SUCCESS with exit 0; outer kill; stream errors) gets a
       first-line marker "[GEMINI PARTIAL OUTPUT: ...]" plus whatever text was
       streamed, or "[GEMINI PRODUCED NO OUTPUT: ...]" plus diagnostics.
+      Exit 0: complete. Exit 2: failed on exhausted quota. Exit 1: other failure.
 
 Why (verified 2026-10-16, agy 1.4.0, Gemini 4 Argon): agy reads files through
 its agent loop, one model turn (5-60 s at High effort) per read, so repo-backed
@@ -131,7 +132,7 @@ def cmd_prompt(a):
 
 
 def cmd_extract(a):
-    result, err_events = None, []
+    result, err_events, err_full = None, [], []
     steps = {}  # step_index -> {"type", "state", "text"}
     ntools, last_tool = 0, ""
     try:
@@ -157,7 +158,8 @@ def cmd_extract(a):
                 elif kind == "result":
                     result = ev.get("result", {})
                 elif kind == "error":
-                    err_events.append(json.dumps(ev)[:300])
+                    err_full.append(json.dumps(ev))
+                    err_events.append(err_full[-1][:300])
     except OSError:
         pass
 
@@ -196,6 +198,20 @@ def cmd_extract(a):
         reasons.append("agy is not signed in: run `agy` once interactively, then re-run")
 
     complete = bool(response.strip()) and not reasons
+    # A 429 that agy recovered from leaves a complete answer: that is not a quota failure.
+    # The quota text can arrive on stderr, in result.error, or only in stream error
+    # events / error_message steps; check all of them.
+    err_text = "\n".join(
+        [stderr, str((result or {}).get("error") or "")]
+        + err_full
+        + [s["text"] for s in steps.values() if s["type"] == "error_message"]
+    )
+    quota = not complete and re.search(r"RESOURCE_EXHAUSTED|Individual quota", err_text)
+    if quota:
+        reasons.append(
+            "agy quota for this model family is exhausted (the Gemini app's usage page does "
+            "not show this; other families may still work)"
+        )
     with open(a.out, "w", encoding="utf-8") as out:
         if complete:
             out.write(response)
@@ -213,7 +229,7 @@ def cmd_extract(a):
             if tail or err_events:
                 out.write("--- agy stderr / error events (tail) ---\n")
                 out.write("\n".join(err_events + tail) + "\n")
-    return 1
+    return 2 if quota else 1
 
 
 def main():

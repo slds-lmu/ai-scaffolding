@@ -45,9 +45,10 @@ claude -p --allowedTools Read,Grep,Glob "This prompt may be swallowed"
 Model choice (`--model` takes the aliases `fable`, `opus`, `sonnet`, or a full
 model name; `--effort low|medium|high|xhigh|max` sets reasoning effort):
 
-- Reviews, second opinions, and anything that needs judgment: `fable` (the
-  strongest tier), or `opus` if that is unavailable. A second opinion from a
-  weaker model than the one doing the work is rarely worth the round trip.
+- Reviews, second opinions, and anything that needs judgment: `opus`
+  (Anthropic's recommended default; `fable` is stronger but costs about twice as
+  much). A second opinion from a weaker model than the one doing the work is rarely
+  worth the round trip.
 - Mechanical tasks (summarize a file, list the functions, convert a format):
   `sonnet`, which is faster and cheaper.
 
@@ -77,7 +78,7 @@ $HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
   --job-dir /tmp/claude-review-job \
   --target /abs/path/project/file1.R \
   --target /abs/path/project/file2.R \
-  --model fable
+  --model opus
 ```
 
 Start that through `functions.exec_command`. If it returns a running session instead of a final answer, continue other work and poll the session later.

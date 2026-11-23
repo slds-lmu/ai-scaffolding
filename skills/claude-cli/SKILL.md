@@ -24,7 +24,7 @@ $HOME/.claude/skills/claude-cli/scripts/claude-run.sh \
 ```
 
 Pick the model by the kind of work: `sonnet` for mechanical lookups like the one
-above, `fable` (or `opus`) whenever the answer needs judgment, which is every
+above, `opus` whenever the answer needs judgment, which is every
 review and second opinion. See `references/cli-patterns.md`.
 
 Large review, background:

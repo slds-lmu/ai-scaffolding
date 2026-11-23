@@ -32,18 +32,25 @@ Important details:
 - Keep `--dangerously-skip-permissions` for unattended reviews. Without it,
   non-trivial agent runs can block on a permission prompt.
 - Set `--print-timeout` explicitly. Use a larger value for file-based reviews.
-  On timeout agy exits **0**, prints `[agy] print timeout after ...` to stderr and
-  returns an empty or cut-off answer (stream-json even says `status: SUCCESS`), so
-  check stderr, never the exit code. There is no hidden cap on the value (verified
-  2026-10-16).
-- Always use Google's strongest available model: their models lag the frontier
-  even at best. `scripts/pick-gemini-model.sh` prints it (newest major version,
-  then Ultra > Pro > Flash, then newest minor, then High effort). Never hardcode
-  a label; they disappear (`Gemini 3.1 Pro (High)` vanished in Oct 2026).
+  On timeout agy prints `[agy] print timeout after ...` to stderr and returns an empty
+  or cut-off answer. agy 1.4.0 exited **0** here (stream-json even said
+  `status: SUCCESS`); the changelog says newer versions exit 3. Check stderr, not just
+  the exit code. There is no hidden cap on the value (verified 2026-10-16).
+- Choose the model by task difficulty, because the strongest model's quota is scarce
+  (see "Quota errors"). Use the strongest for hard or high-stakes work such as
+  derivations, statistical methods and subtle bugs: Google's models lag the frontier
+  even at their best. Use Flash for routine work:
+  `pick-gemini-model.sh high "" flash`. With no third argument,
+  `scripts/pick-gemini-model.sh` prints the strongest (newest major version, then
+  Ultra > Pro or codename > Flash > Flash-Lite, then newest minor, then the script's
+  `RANK2` order of Pro and codename families; an unranked new codename prints a
+  warning), at High effort. Never hardcode a label; they disappear
+  (`Gemini 3.1 Pro (High)` vanished in Oct 2026).
 - List currently available model labels with `agy models`. Reasoning effort is
   encoded in the model label. To choose it, pass the effort to the picker:
   `pick-gemini-model.sh medium` returns the strongest family's `(Medium)` variant
-  (default `high`; `xhigh`/`max` map to High). agy also has a session-level
+  (default `high`; `xhigh` picks `(XHigh)`, offered by Neon and Hydrogen in agy 1.5.13;
+  a missing variant falls back to the family's nearest effort). agy also has a session-level
   `--effort` flag, but how it interacts with a label's effort is untested, so
   select effort via the label.
 - Add readable roots with repeated `--add-dir /absolute/path` flags when the
@@ -64,8 +71,11 @@ bash ~/.claude/skills/council-of-bots/scripts/council-fanout.sh \
 ```
 
 The launcher writes Gemini's response to `/tmp/${ID}-gemini.txt`. It picks the
-strongest available Gemini via `scripts/pick-gemini-model.sh`; override this for
-one invocation with:
+model given by `--gemini-model` and `--gemini-effort` (`strongest` by default; the
+council skill says how to choose). If that model's quota is exhausted, it reruns on the
+strongest remaining family (`pick-gemini-model.sh EFFORT "Family A|Family B"`) and starts
+the review with a `[GEMINI FALLBACK: ...]` line. To force one exact label and disable the
+fallback:
 
 ```bash
 COUNCIL_GEMINI_MODEL="MODEL LABEL FROM agy models" \
@@ -127,3 +137,23 @@ for findings first rather than preloading Gemini with the host agent's diagnosis
   (`~/.gemini/antigravity-cli/cli.log`): a network stall killed the turn (seen
   2026-10-16 after 17 min); just re-run.
 - Unknown model: run `agy models` and use the exact displayed label.
+
+## Quota errors (`RESOURCE_EXHAUSTED`, 429, "Individual quota reached")
+
+These are real, but they do not mean "Gemini is used up". Observed 2026-11-04 (agy 1.5.0):
+
+- The limit applied per model family: Argon High and Low both returned 429 while Flash
+  High and Low answered on the same login. So try the next family before reporting
+  (a no-tool call is enough):
+  `agy -p "Reply with exactly: PONG" --model "<label>" --print-timeout 90s`
+- The usage page in the Gemini app (gemini.google.com, "Nutzungslimits") does not show
+  this limit. It read 1 % used with a different reset time during these 429s, so a low
+  number there does not contradict agy. agy has no quota subcommand; the
+  `Resets in ...` text in the error is the only reading.
+- All six logged 429s computed to a reset on a Monday at 09:13:15 CET (Nov 2 and Nov 9),
+  which suggests a weekly window. In the one fully logged window, Argon ran out after
+  about 20 council runs on Nov 2-3; cost per run varies, so treat that as a rough scale.
+  Find affected runs with `grep -l 'Individual quota' ~/.gemini/antigravity-cli/log/*`.
+- Report these as "Argon quota exhausted, resets in X", and name the model that answered
+  instead. The council launcher falls back by itself (see "Council reviews"), except
+  with `COUNCIL_GEMINI_MODEL` set.
