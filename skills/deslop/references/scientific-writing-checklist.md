@@ -154,7 +154,7 @@ discipline-specific reporting standard for a real manuscript.
   — full reporting, effect importance, and conclusions not based on a threshold alone.
 - [Center for Open Science, TOP Guidelines](https://www.cos.io/initiatives/top-guidelines)
   — protocol, analysis-plan, materials, code, data, and reporting transparency.
-- [Gopen and Swan, “The Science of Scientific Writing”](https://www.ispdhome.org/common/Uploaded%20files/ispd/earlycareer/writing_and_publishing/TheScienceOfScientificWriting_Gopen_Swan.pdf)
+- [Gopen and Swan, “The Science of Scientific Writing”](https://www.usenix.org/sites/default/files/gopen_and_swan_science_of_scientific_writing.pdf)
   — reader expectations, topic position, stress position, and logical linkage.
 - [NCBI Style Guide: Grammar Reminders and Technical Writing](https://www.ncbi.nlm.nih.gov/books/NBK993/)
   — precise word choice and intentional active/passive voice.

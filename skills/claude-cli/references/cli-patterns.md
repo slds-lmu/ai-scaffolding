@@ -85,6 +85,6 @@ Start that through `functions.exec_command`. If it returns a running session ins
 
 ## Official Docs
 
-- CLI reference: https://docs.anthropic.com/en/docs/claude-code/cli-reference
-- Common workflows: https://docs.anthropic.com/en/docs/claude-code/common-workflows
-- Settings and permissions: https://docs.anthropic.com/en/docs/claude-code/settings
+- CLI reference: https://code.claude.com/docs/en/cli-reference
+- Common workflows: https://code.claude.com/docs/en/common-workflows
+- Settings and permissions: https://code.claude.com/docs/en/settings
